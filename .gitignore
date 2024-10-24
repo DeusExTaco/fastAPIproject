@@ -1,3 +1,4 @@
 # .gitignore
 *.pem
 .env
+.idea
