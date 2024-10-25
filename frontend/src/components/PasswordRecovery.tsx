@@ -33,23 +33,37 @@ function PasswordRecovery() {
     }
   };
 
-  return (
-      <div>
-        <h2>Password Recovery</h2>
-        <form onSubmit={handleSubmit}>
+return (
+    <div className="bg-gray-100 min-h-screen flex items-center justify-center">
+      <div className="bg-white shadow-lg rounded-lg p-8 max-w-md w-full">
+        <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">Password Recovery</h2>
+        {message && <p className="text-green-500 text-sm mb-4">{message}</p>}
+        {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
+
+        <form onSubmit={handleSubmit} className="mb-6">
           <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              placeholder="Enter your email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            placeholder="Enter your email"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-4"
           />
-          <button type="submit">Send Recovery Email</button>
+          <button
+            type="submit"
+            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 rounded-lg transition duration-200"
+          >
+            Send Recovery Email
+          </button>
         </form>
-        {message && <p style={{color: 'green'}}>{message}</p>}
-        {error && <p style={{color: 'red'}}>{error}</p>}
-        <div><Link to="/Login">Go to Login</Link></div>
+
+        <div className="text-center">
+          <Link to="/Login" className="text-indigo-600 hover:underline">
+            Go to Login
+          </Link>
+        </div>
       </div>
+    </div>
   );
 }
 

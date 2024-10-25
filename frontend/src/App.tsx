@@ -51,12 +51,13 @@ function AppContent() {
   )
 }
 
-function Dashboard({ user }: { user: User }) {
-  if (user.roles.includes('ADMIN')) {
+function Dashboard({ user }: Readonly<{ user: User }>) {
+  if (user.roles.includes('admin')) {
     return <AdminDashboard user={user} />;
-  } else if (user.roles.includes('MODERATOR')) {
+  } else if (user.roles.includes('moderator')) {
     return <ModeratorDashboard user={user} />;
   } else {
+    console.log("here in user")
     return <UserDashboard user={user} />;
   }
 }

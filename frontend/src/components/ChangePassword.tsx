@@ -1,4 +1,7 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import {useAuth} from "../AuthContext";
+
 
 interface ChangePasswordProps {
   userId: number;
@@ -20,7 +23,9 @@ const ChangePassword: React.FC<ChangePasswordProps> = ({ userId, onPasswordChang
   const [confirmPassword, setConfirmPassword] = useState<string>('');
   const [error, setError] = useState<string>('');
   const [success, setSuccess] = useState<string>('');
-  const [generatedPassword, setGeneratedPassword] = useState<string>(''); // State for generated password
+  const [generatedPassword, setGeneratedPassword] = useState<string>('');
+  const { logout } = useAuth();
+  const navigate = useNavigate();
 
 const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -48,14 +53,20 @@ const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         });
 
         if (response.ok) {
-            setSuccess('Password changed successfully.');
+            setSuccess('Password changed successfully. You will now be logged out.');
             setCurrentPassword('');
             setNewPassword('');
             setConfirmPassword('');
+            setGeneratedPassword('');
             onPasswordChanged();
+
+            // Delay logout and navigation by 2 seconds
+            setTimeout(() => {
+              logout(); // Log the user out
+              navigate('/login'); // Redirect to login page
+            }, 3000);
         } else {
             const errorData = await response.json(); // Parse the error response
-            console.error("Validation Errors:", errorData); // Log the error details
             setNewPassword('');
             setConfirmPassword('');
             // Extract and display the error messages
@@ -91,9 +102,9 @@ const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
 
       if (response.ok) {
         const data = await response.json();
-        setGeneratedPassword(data.generated_password); // Set the generated password
+        setGeneratedPassword(data.generated_password);
         setNewPassword(data.generated_password);
-        setConfirmPassword(data.generated_password); // Optionally set it as the new password
+        setConfirmPassword(data.generated_password);
       } else {
         const errorData = await response.json();
         setError(errorData.detail || 'Failed to generate password');
@@ -103,52 +114,67 @@ const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     }
   };
 
-  return (
-    <form onSubmit={handleSubmit}>
-      <h3>Change Password</h3>
-      {error && <p style={{ color: 'red' }}>{error}</p>}  {/* Display error messages */}
-      {success && <p style={{ color: 'green' }}>{success}</p>}  {/* Display success messages */}
-      {generatedPassword && <p style={{ color: 'white' }}>Generated Password: {generatedPassword}</p>} {/* Display generated password */}
+   return (
+    <div className="bg-gray-100 min-h-screen flex items-center justify-center">
+      <form onSubmit={handleSubmit} className="bg-white shadow-lg rounded-lg p-8 max-w-md w-full">
+        <h3 className="text-2xl font-bold text-gray-800 mb-6 text-center">Change Password</h3>
+        {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
+        {success && <p className="text-green-500 text-sm mb-4">{success}</p>}
+        {generatedPassword && <p className="text-gray-500 text-sm mb-4">Generated Password: {generatedPassword}</p>}
 
-      <div>
-        <label htmlFor="currentPassword">Current Password:</label>
-        <input
-          type="password"
-          id="currentPassword"
-          value={currentPassword}
-          onChange={(e) => setCurrentPassword(e.target.value)}
-          required
-          autoComplete="current-password"
-        />
-      </div>
-      <div>
-        <label htmlFor="newPassword">New Password:</label>
-        <input
-          type="password"
-          id="newPassword"
-          value={newPassword}
-          onChange={(e) => setNewPassword(e.target.value)}
-          required
-          autoComplete="new-password"
-        />
-      </div>
-      <div>
-        <label htmlFor="confirmPassword">Confirm New Password:</label>
-        <input
-          type="password"
-          id="confirmPassword"
-          value={confirmPassword}
-          onChange={(e) => setConfirmPassword(e.target.value)}
-          required
-          autoComplete="new-password"
-        />
-      </div>
-      <button type="submit">Change Password</button>
-      <div>
-        <button type="button" onClick={generateRandomPassword}>Generate Random New Password</button>
-      </div>
-        {error && <p style={{ color: 'red' }}>{error}</p>}  {/* Display error messages */}
-    </form>
+        <div className="mb-4">
+          <label htmlFor="currentPassword" className="block text-gray-700 font-medium mb-2">Current Password:</label>
+          <input
+            type="password"
+            id="currentPassword"
+            value={currentPassword}
+            onChange={(e) => setCurrentPassword(e.target.value)}
+            required
+            autoComplete="current-password"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            placeholder="Enter current password"
+          />
+        </div>
+
+        <div className="mb-4">
+          <label htmlFor="newPassword" className="block text-gray-700 font-medium mb-2">New Password:</label>
+          <input
+            type="password"
+            id="newPassword"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            required
+            autoComplete="new-password"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            placeholder="Enter new password"
+          />
+        </div>
+
+        <div className="mb-4">
+          <label htmlFor="confirmPassword" className="block text-gray-700 font-medium mb-2">Confirm New Password:</label>
+          <input
+            type="password"
+            id="confirmPassword"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            required
+            autoComplete="new-password"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            placeholder="Confirm new password"
+          />
+        </div>
+
+        <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 rounded-lg transition duration-200">
+          Change Password
+        </button>
+
+        <div className="flex justify-center mt-4">
+          <button type="button" onClick={generateRandomPassword} className="text-indigo-600 hover:underline">
+            Generate Random New Password
+          </button>
+        </div>
+      </form>
+    </div>
   );
 };
 
