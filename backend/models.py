@@ -1,9 +1,10 @@
 
+import enum
+
 from sqlalchemy import Column, Integer, String, Enum, DateTime, JSON, MetaData
-from sqlalchemy.sql import func
 # from database import Base
 from sqlalchemy.ext.declarative import declarative_base
-import enum
+from sqlalchemy.sql import func
 
 # Create a single MetaData instance
 metadata = MetaData()

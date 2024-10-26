@@ -1,13 +1,13 @@
-import React, { useState } from 'react'
-import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom'
-import Home from './pages/Home'
-import Login from './pages/Login'
-import AdminDashboard from './pages/AdminDashboard'
-import ModeratorDashboard from './pages/ModeratorDashboard'
-import UserDashboard from './pages/UserDashboard'
-import ResetPassword from './pages/ResetPassword'
-import PasswordRecovery from './components/PasswordRecovery'  // Import PasswordRecovery
-import { AuthProvider, useAuth } from './AuthContext'
+import { useState } from 'react';
+import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
+import Home from './pages/Home';
+import Login from './pages/Login';
+import AdminDashboard from './pages/AdminDashboard';
+import ModeratorDashboard from './pages/ModeratorDashboard';
+import UserDashboard from './pages/UserDashboard';
+import ResetPassword from './components/ResetPassword';
+import PasswordRecovery from './components/PasswordRecovery';
+import { AuthProvider, useAuth } from './AuthContext';
 
 interface User {
   id: number;
@@ -22,7 +22,7 @@ function App() {
         <AppContent />
       </Router>
     </AuthProvider>
-  )
+  );
 }
 
 function AppContent() {
@@ -38,17 +38,23 @@ function AppContent() {
     <div>
       <Routes>
         <Route path="/" element={<Home />} />
-        <Route path="/login" element={
-          isAuthenticated ? <Navigate to="/dashboard" replace /> : <Login onLogin={handleLogin} />
-        } />
-        <Route path="/dashboard" element={
-          isAuthenticated && user ? <Dashboard user={user} /> : <Navigate to="/login" replace />
-        } />
+        <Route
+          path="/login"
+          element={
+            isAuthenticated ? <Navigate to="/dashboard" replace /> : <Login onLogin={handleLogin} />
+          }
+        />
+        <Route
+          path="/dashboard"
+          element={
+            isAuthenticated && user ? <Dashboard user={user} /> : <Navigate to="/login" replace />
+          }
+        />
         <Route path="/reset-password" element={<ResetPassword />} />
-        <Route path="/password-recovery" element={<PasswordRecovery />} />  {/* Add this line */}
+        <Route path="/password-recovery" element={<PasswordRecovery />} />
       </Routes>
     </div>
-  )
+  );
 }
 
 function Dashboard({ user }: Readonly<{ user: User }>) {
@@ -57,9 +63,8 @@ function Dashboard({ user }: Readonly<{ user: User }>) {
   } else if (user.roles.includes('moderator')) {
     return <ModeratorDashboard user={user} />;
   } else {
-    console.log("here in user")
     return <UserDashboard user={user} />;
   }
 }
 
-export default App
+export default App;

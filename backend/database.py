@@ -1,10 +1,11 @@
 
+import os
+
+import pymysql
+from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base
 from sqlalchemy.orm import sessionmaker
-from dotenv import load_dotenv
-import os
-import pymysql
 
 load_dotenv()
 
@@ -50,7 +51,6 @@ def get_db():
 
 def init_db():
     # Import User here to avoid circular imports
-    from models import User
     Base.metadata.create_all(bind=engine)
     print("Database tables created.")
 

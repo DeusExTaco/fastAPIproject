@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
-import {Link} from "react-router-dom";
+import PasswordRecoveryResult from './PasswordRecoveryResult';
 
-function PasswordRecovery() {
+const PasswordRecovery: React.FC = () => {
   const [email, setEmail] = useState('');
-  const [message, setMessage] = useState('');
+  const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setMessage('');
     setError('');
+    setIsLoading(true);
 
     try {
       const response = await fetch('http://localhost:8000/api/password-recovery', {
@@ -20,48 +21,85 @@ function PasswordRecovery() {
         body: JSON.stringify({ email }),
       });
 
-      const data = await response.json();
-
       if (response.ok) {
-        setMessage(data.message);
+        setSubmitted(true);
       } else {
-        setError(data.detail || 'An error occurred. Please try again.');
+        const errorData = await response.json();
+        setError(errorData.detail || 'An error occurred while sending the recovery email.');
       }
     } catch (error) {
-      console.error('Error:', error);
-      setError('An error occurred. Please try again.');
+      setError('An error occurred while sending the recovery email. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
-return (
+  if (submitted) {
+    return <PasswordRecoveryResult email={email} />;
+  }
+
+  return (
     <div className="bg-gray-100 min-h-screen flex items-center justify-center">
       <div className="bg-white shadow-lg rounded-lg p-8 max-w-md w-full">
-        <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">Password Recovery</h2>
-        {message && <p className="text-green-500 text-sm mb-4">{message}</p>}
-        {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
-
-        <form onSubmit={handleSubmit} className="mb-6">
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            placeholder="Enter your email"
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-4"
+        <div className="flex justify-center mb-6">
+          <img
+            src={"/src/assets/PasswordRecoveryGraphic.png"}
+            alt="Recovery Graphic"
+            className="w-48 h-48 object-contain rounded-lg"
           />
+        </div>
+        <h1 className="text-center text-2xl font-bold text-gray-800 mb-6">
+          Forgot your password?
+        </h1>
+        <p className="text-center text-gray-600 mb-6">
+          Enter your email address and we will send you instructions to reset your password.
+        </p>
+
+        {error && (
+          <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4">
+            <p className="text-red-700">{error}</p>
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit}>
+          <div className="mb-4">
+            <label
+              htmlFor="email"
+              className="block text-gray-700 font-semibold mb-2"
+            >
+              Email address
+            </label>
+            <input
+              type="email"
+              id="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full px-4 py-2 border border-blue-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="email@example.com"
+              required
+              disabled={isLoading}
+            />
+          </div>
           <button
             type="submit"
-            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 rounded-lg transition duration-200"
+            disabled={isLoading}
+            className={`w-full ${
+              isLoading 
+                ? 'bg-blue-300 cursor-not-allowed' 
+                : 'bg-blue-500 hover:bg-blue-600'
+            } text-white font-bold py-2 px-4 rounded-lg transition duration-300`}
           >
-            Send Recovery Email
+            {isLoading ? 'Sending...' : 'Continue'}
           </button>
+          <div className="text-center mt-6">
+            <a
+              href="/"
+              className="text-blue-500 hover:underline transition duration-300"
+            >
+              Back to Home
+            </a>
+          </div>
         </form>
-
-        <div className="text-center">
-          <Link to="/Login" className="text-indigo-600 hover:underline">
-            Go to Login
-          </Link>
-        </div>
       </div>
     </div>
   );

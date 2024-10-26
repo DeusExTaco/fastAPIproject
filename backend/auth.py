@@ -1,17 +1,18 @@
+import os
+from typing import Optional
+
+import jwt
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import serialization
+from dotenv import load_dotenv
 from fastapi import Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer
-from sqlalchemy.orm import Session
-from typing import Optional
-from dotenv import load_dotenv
-import os
-import jwt
 from jwt import PyJWTError
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.backends import default_backend
+from sqlalchemy.orm import Session
 
-from schema import TokenData
-from models import User
 from database import get_db
+from models import User
+from schema import TokenData
 
 # Load environment variables
 load_dotenv()

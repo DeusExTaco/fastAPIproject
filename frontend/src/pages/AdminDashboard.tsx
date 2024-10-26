@@ -1,4 +1,3 @@
-import React from 'react'
 import { useNavigate } from 'react-router-dom'
 import ChangePassword from '../components/ChangePassword'
 import { useAuth } from '../AuthContext'

@@ -1,18 +1,18 @@
-from pydantic import BaseModel, EmailStr, Field, constr, field_validator, ValidationError
-from datetime import datetime
-from models import UserStatus, UserRole
-from typing import Optional, List
-from fastapi import HTTPException
 import re
 import string
+from datetime import datetime
+from typing import Optional, List
+import logging
+
+from fastapi import HTTPException
+from pydantic import BaseModel, EmailStr, Field, field_validator
+
+from models import UserStatus, UserRole
 
 def validate_password_strength(password: str) -> str:
     """
     Validates password strength against defined criteria.
-    Returns the password if valid, raises HTTPException if invalid.
     """
-    errors = []
-
     validations = [
         (len(password) < 16, "Password must be at least 16 characters long."),
         (not re.search(r'[A-Z]', password), "Password must contain at least one uppercase letter."),
@@ -29,15 +29,10 @@ def validate_password_strength(password: str) -> str:
     ]
 
     if errors:
+        logging.info(f"{errors}")
         raise HTTPException(status_code=422, detail=errors)
 
     return password
-
-class PasswordValidatorMixin:
-    """Mixin class for single password validation"""
-    @field_validator('password')
-    def validate_password(cls, v):
-        return validate_password_strength(v)
 
 class NewPasswordValidatorMixin:
     """Mixin class for new password validation"""
@@ -45,18 +40,40 @@ class NewPasswordValidatorMixin:
     def validate_new_password(cls, v):
         return validate_password_strength(v)
 
+class PasswordUpdateRequest(NewPasswordValidatorMixin, BaseModel):
+    user_id: Optional[int] = None
+    current_password: Optional[str] = None
+    new_password: str
+    token: Optional[str] = None
+
+    @field_validator('current_password', 'user_id')
+    def validate_required_fields(cls, v, field):
+        token = getattr(field.data, 'token', None)
+        if not token and v is None:
+            raise ValueError(f"{field.name} is required when token is not provided")
+        return v
+
+class PasswordRecoveryInitRequest(BaseModel):
+    """Request to initiate password recovery"""
+    email: EmailStr
+
+class TokenData(BaseModel):
+    username: Optional[str] = None
+
 class UserBase(BaseModel):
     first_name: str = Field(..., min_length=1, max_length=50)
     last_name: str = Field(..., min_length=1, max_length=50)
     user_name: str = Field(..., min_length=1, max_length=50)
     email: EmailStr
 
-
-class UserCreate(UserBase, PasswordValidatorMixin):
+class UserCreate(UserBase):
     password: str
     roles: List[UserRole] = Field(default=[UserRole.USER])
     status: UserStatus = Field(default=UserStatus.PENDING)
 
+    @field_validator('password')
+    def validate_password(cls, v):
+        return validate_password_strength(v)
 
 class UserResponse(UserBase):
     id: int
@@ -72,14 +89,6 @@ class UserLogin(BaseModel):
     username: str
     password: str
 
-class ChangePasswordRequest(NewPasswordValidatorMixin, BaseModel):
-    user_id: int
-    current_password: str
-    new_password: str
-
-class TokenData(BaseModel):
-    username: Optional[str] = None
-
 class UserUpdate(BaseModel):
     first_name: Optional[str] = Field(None, min_length=1, max_length=50)
     last_name: Optional[str] = Field(None, min_length=1, max_length=50)
@@ -89,10 +98,3 @@ class UserUpdate(BaseModel):
 
     class Config:
         use_enum_values = True
-
-class PasswordRecoveryRequest(BaseModel):
-    email: EmailStr
-
-class ResetPasswordRequest(NewPasswordValidatorMixin, BaseModel):
-    token: str
-    new_password: str

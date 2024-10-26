@@ -1,16 +1,22 @@
 import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-import tsNode from 'ts-node';
-
-tsNode.register();
+import react from '@vitejs/plugin-react-swc'
+import path from 'path'
 
 export default defineConfig({
   plugins: [react()],
-  root: '.', // This should point to the directory containing index.html
-  build: {
-    outDir: 'dist',
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+    },
   },
   server: {
-    open: true, // This will open the app in the browser when you run the dev server
-  },
+    port: 5173,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+        secure: false,
+      }
+    }
+  }
 })
