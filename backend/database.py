@@ -4,7 +4,7 @@ from datetime import datetime, UTC
 
 import pymysql
 from dotenv import load_dotenv
-from sqlalchemy import create_engine, MetaData
+from sqlalchemy import create_engine, MetaData, Table, Column, String, DateTime, inspect
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 
@@ -31,6 +31,29 @@ metadata = MetaData()
 
 # Create the Base instance with the shared metadata
 Base = declarative_base(metadata=metadata)
+
+
+# Define a table to track database initialization
+class DBInit(Base):
+    __tablename__ = 'db_init'
+
+    id = Column(String(36), primary_key=True)
+    initialized_at = Column(DateTime(timezone=True), nullable=False)
+
+
+def table_exists(engine, table_name):
+    """Check if a table exists in the database"""
+    inspector = inspect(engine)
+    return table_name in inspector.get_table_names()
+
+
+def get_all_model_tables():
+    """Get all model tables that should exist in the database"""
+    # Import models to ensure they're registered with Base
+    from models import User
+    import models  # Import all models
+
+    return Base.metadata.tables
 
 
 def create_initial_admin_user(session):
@@ -72,7 +95,20 @@ def create_initial_admin_user(session):
         raise
 
 
-def create_database_if_not_exists():
+def is_database_initialized(session):
+    """Check if database has been initialized before"""
+    return session.query(DBInit).first() is not None
+
+
+def mark_database_initialized(session):
+    """Mark database as initialized"""
+    db_init = DBInit(id='1', initialized_at=datetime.now(UTC))
+    session.add(db_init)
+    session.commit()
+
+
+def check_database_exists():
+    """Check if the database exists and create it if it doesn't"""
     print("Checking database existence...")
     connection = pymysql.connect(
         host=MYSQL_HOST,
@@ -82,14 +118,43 @@ def create_database_if_not_exists():
     )
     try:
         with connection.cursor() as cursor:
-            cursor.execute(f"CREATE DATABASE IF NOT EXISTS {MYSQL_DATABASE}")
-        print(f"Database '{MYSQL_DATABASE}' created or already exists.")
+            # Check if database exists
+            cursor.execute("SHOW DATABASES")
+            databases = [db[0] for db in cursor.fetchall()]
+
+            if MYSQL_DATABASE in databases:
+                print(f"\n{'=' * 50}")
+                print(f"Database '{MYSQL_DATABASE}' already exists.")
+                print(f"{'=' * 50}\n")
+                return False
+            else:
+                # Create database if it doesn't exist
+                cursor.execute(f"CREATE DATABASE {MYSQL_DATABASE}")
+                print(f"\n{'=' * 50}")
+                print(f"Database '{MYSQL_DATABASE}' created successfully!")
+                print(f"{'=' * 50}\n")
+                return True
     finally:
         connection.close()
 
 
-# Create database first
-create_database_if_not_exists()
+def check_tables_exist():
+    """Check if all required tables exist in the database"""
+    model_tables = get_all_model_tables()
+    missing_tables = []
+    existing_tables = []
+
+    for table_name in model_tables.keys():
+        if table_exists(engine, table_name):
+            existing_tables.append(table_name)
+        else:
+            missing_tables.append(table_name)
+
+    return existing_tables, missing_tables
+
+
+# Check database existence first
+is_new_database = check_database_exists()
 
 # Then create engine with the database URL
 engine = create_engine(SQLALCHEMY_DATABASE_URL)
@@ -112,18 +177,36 @@ def init_db():
     import models  # Import all models
 
     try:
-        # Create all tables
-        Base.metadata.create_all(bind=engine)
-        print("Database tables created successfully.")
+        # Check existing tables
+        existing_tables, missing_tables = check_tables_exist()
 
-        # Create initial admin user
+        if existing_tables:
+            print("\nExisting tables found:")
+            for table in existing_tables:
+                print(f"  - {table}")
+
+        if missing_tables:
+            print("\nCreating missing tables:")
+            for table in missing_tables:
+                print(f"  - {table}")
+            # Create only missing tables
+            Base.metadata.create_all(bind=engine, tables=[Base.metadata.tables[table] for table in missing_tables])
+            print("Missing tables created successfully.")
+        else:
+            print("\nAll required tables already exist. Skipping table creation.")
+
+        # Create initial admin user only if this is a new database
         db = SessionLocal()
         try:
-            create_initial_admin_user(db)
+            if is_new_database or not is_database_initialized(db):
+                create_initial_admin_user(db)
+                mark_database_initialized(db)
+                print("\nDatabase initialization completed successfully.")
+            else:
+                print("\nDatabase already initialized, skipping admin user creation.")
         finally:
             db.close()
 
-        print("Database initialization completed successfully.")
     except Exception as e:
         print(f"Error during database initialization: {e}")
         raise
