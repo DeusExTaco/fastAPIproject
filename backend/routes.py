@@ -13,12 +13,12 @@ from pydantic import BaseModel
 from models import UserStatus
 
 
-import email_utils
+from templates.email.password_reset_template import send_recovery_email
+from templates.email.welcome_template import send_welcome_email
 import models
 import schema
 from auth import get_current_user, check_admin, create_token
 from database import get_db
-from email_utils import send_recovery_email
 from models import User, UserRole
 from random_password import PasswordGenerator
 from schema import (UserResponse, UserLogin, UserUpdateRequest,
@@ -146,13 +146,14 @@ async def password_recovery(
     db.commit()
 
     try:
-        # Send the token via email
+        # Now using the template-specific function
         background_tasks.add_task(send_recovery_email, user.email, token)
         logging.info(f"Recovery email task added for user {user.id}")
         return {"message": "If the email exists, a recovery link will be sent."}
     except Exception as e:
         logging.error(f"Error sending recovery email: {str(e)}")
         raise HTTPException(status_code=500, detail="An error occurred while sending the recovery email.")
+
 
 
 @router.post("/update-password", status_code=status.HTTP_200_OK)
@@ -491,7 +492,7 @@ async def edit_user(
 
 @router.post("/resend-password-recovery")
 def resend_password_recovery(
-    request: dict,  # Add a request body model
+    request: dict,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db)
 ):
@@ -509,7 +510,7 @@ def resend_password_recovery(
     user.reset_token_expiry = reset_token_expiry
     db.commit()
 
-    # Send the recovery email
+    # Now using the template-specific function
     background_tasks.add_task(send_recovery_email, request.get("email"), new_reset_token)
 
     return {"message": f"Password recovery email resent to {request.get('email')}"}
@@ -590,7 +591,7 @@ async def create_user(
         logging.info(f"Processed roles for new user: {roles_str}")
 
         # Generate reset token first
-        reset_token = secrets.token_urlsafe(32)  # Using secrets for token generation
+        reset_token = secrets.token_urlsafe(32)
         reset_token_expiry = datetime.now(UTC) + timedelta(hours=24)
 
         # Create new user instance with token
@@ -613,10 +614,10 @@ async def create_user(
             db.refresh(new_user)
             logging.info(f"Successfully created new user: {new_user.user_name}")
 
-            # Send welcome email with reset token
+            # Now using the template-specific function
             try:
                 background_tasks.add_task(
-                    email_utils.send_welcome_email,
+                    send_welcome_email,
                     email=new_user.email,
                     token=reset_token,
                     username=new_user.user_name
@@ -645,16 +646,15 @@ async def create_user(
             )
 
     except HTTPException as http_exc:
-        # Log and re-raise HTTP exceptions
         logging.error(f"HTTP error in create_user: {http_exc.detail}")
         raise http_exc
     except Exception as e:
-        # Log and handle unexpected errors
         logging.error(f"Unexpected error in create_user: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"An unexpected error occurred: {str(e)}"
         )
+
 
 
 @router.get("/users", response_model=List[UserListResponse])

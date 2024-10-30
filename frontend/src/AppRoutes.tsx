@@ -1,9 +1,8 @@
-// src/AppRoutes.tsx
 import React from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from './UseAuth';
 import Home from './pages/Home';
-import Login from './pages/Login';
+import LoginPage from './pages/Login';
 import AdminDashboard from './pages/AdminDashboard';
 import ModeratorDashboard from './pages/ModeratorDashboard';
 import UserDashboard from './pages/UserDashboard';
@@ -72,7 +71,7 @@ const AppRoutes: React.FC = () => {
             isAuthenticated ? (
               <Navigate to="/dashboard" replace />
             ) : (
-              <Login onLogin={handleLogin} />
+              <LoginPage onLogin={handleLogin} />
             )
           }
         />
@@ -121,11 +120,10 @@ const AppRoutes: React.FC = () => {
   );
 };
 
-// Dashboard component to handle role-based rendering
+// Dashboard component remains the same
 function Dashboard({ user }: { user: { id: number; username: string; roles: string[] } }) {
   console.log('Dashboard rendering for user:', { username: user.username, roles: user.roles });
 
-  // Role-based component selection
   if (user.roles.includes('ADMIN')) {
     return (
       <ErrorBoundary>
