@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, UTC
 import secrets
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
-from models import User, UserRole, UserStatus
+from models import User, UserRole
 from services.password_service import PasswordService
 
 
@@ -87,14 +87,42 @@ class UserService:
 
     def update_user(self, user: User, update_data: Dict[str, Any]) -> User:
         try:
+            logging.info("Starting update_user function")
+
+            # Check if the new email already exists for a different user
+            new_email = update_data.get("email")
+            if new_email:
+                logging.info(f"Checking for existing user with email: {new_email}")
+                existing_user = self.db.query(User).filter(User.email == new_email, User.id != user.id).first()
+                if existing_user:
+                    logging.warning("Duplicate email detected")
+                    raise HTTPException(status_code=400, detail="A user with this email already exists.")
+
+            # Convert roles list to comma-separated string if roles exist
+            if "roles" in update_data and isinstance(update_data["roles"], list):
+                update_data["roles"] = ','.join(update_data["roles"])
+                logging.info(f"Roles converted to string: {update_data['roles']}")
+
+            # Update the user fields
             for key, value in update_data.items():
                 if hasattr(user, key) and value is not None:
                     setattr(user, key, value)
+                    logging.info(f"Updated {key} to {value}")
 
+            # Commit changes
             self.db.commit()
             self.db.refresh(user)
+            logging.info("User updated successfully")
             return user
+
+        except HTTPException as e:
+            # Specifically handle HTTP exceptions
+            logging.error(f"HTTPException in update_user: {e.detail}")
+            self.db.rollback()
+            raise e
+
         except Exception as e:
+            # Catch any other exceptions and log them
             self.db.rollback()
             logging.error(f"Error updating user: {str(e)}")
             raise HTTPException(
