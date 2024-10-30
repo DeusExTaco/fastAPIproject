@@ -4,7 +4,7 @@ from datetime import datetime, UTC
 
 import pymysql
 from dotenv import load_dotenv
-from sqlalchemy import create_engine, MetaData, Table, Column, String, DateTime, inspect
+from sqlalchemy import create_engine, MetaData, Column, String, DateTime, inspect
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 
@@ -41,18 +41,13 @@ class DBInit(Base):
     initialized_at = Column(DateTime(timezone=True), nullable=False)
 
 
-def table_exists(engine, table_name):
+def table_exists(engine1, table_name):
     """Check if a table exists in the database"""
-    inspector = inspect(engine)
+    inspector = inspect(engine1)
     return table_name in inspector.get_table_names()
 
 
 def get_all_model_tables():
-    """Get all model tables that should exist in the database"""
-    # Import models to ensure they're registered with Base
-    from models import User
-    import models  # Import all models
-
     return Base.metadata.tables
 
 
@@ -171,10 +166,6 @@ def get_db():
 
 def init_db():
     print("Initializing database...")
-
-    # Import models to ensure they're registered with Base
-    from models import User
-    import models  # Import all models
 
     try:
         # Check existing tables

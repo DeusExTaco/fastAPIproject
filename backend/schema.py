@@ -1,7 +1,7 @@
 import re
 import string
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional, List, Union
 import logging
 
 from fastapi import HTTPException
@@ -66,24 +66,89 @@ class UserBase(BaseModel):
     user_name: str = Field(..., min_length=1, max_length=50)
     email: EmailStr
 
+
 class UserCreate(UserBase):
     password: str
-    roles: List[UserRole] = Field(default=[UserRole.USER])
+    roles: List[Union[UserRole, str]] = Field(default=[UserRole.USER])
     status: UserStatus = Field(default=UserStatus.PENDING)
 
     @field_validator('password')
     def validate_password(cls, v):
         return validate_password_strength(v)
 
+    @field_validator('roles')
+    def validate_roles(cls, v):
+        if not v:
+            return [UserRole.USER]
+
+        try:
+            # Convert all roles to UserRole enum
+            validated_roles = []
+            for role in v:
+                if isinstance(role, UserRole):
+                    validated_roles.append(role)
+                else:
+                    # Handle string role values
+                    role_str = str(role).upper()
+                    validated_roles.append(UserRole(role_str))
+
+            logging.info(f"Validated roles: {validated_roles}")
+            return validated_roles
+        except ValueError as e:
+            valid_roles = ', '.join([role.value for role in UserRole])
+            raise ValueError(f"Invalid role. Valid roles are: {valid_roles}")
+
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_encoders={
+            UserRole: lambda v: v.value,
+            UserStatus: lambda v: v.value
+        },
+        json_schema_extra={
+            "example": {
+                "first_name": "John",
+                "last_name": "Doe",
+                "user_name": "johndoe",
+                "email": "john@example.com",
+                "password": "StrongP@ssw0rd123",
+                "roles": ["USER"],
+                "status": "PENDING"
+            }
+        }
+    )
+
 class UserResponse(UserBase):
     id: int
     status: UserStatus
-    roles: List[UserRole]
+    roles: List[str]  # Changed from List[UserRole] to List[str]
     created_at: datetime
     updated_at: datetime
     last_login: Optional[datetime] = None
 
-    model_config = ConfigDict(from_attributes=True)
+    @field_validator('roles', mode='before')
+    def validate_roles(cls, v):
+        if isinstance(v, str):
+            # Convert comma-separated string to list
+            return [role.strip() for role in v.split(',')]
+        return v
+
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
+            "example": {
+                "id": 1,
+                "user_name": "johndoe",
+                "first_name": "John",
+                "last_name": "Doe",
+                "email": "john@example.com",
+                "roles": ["USER"],
+                "status": "ACTIVE",
+                "created_at": "2024-01-01T00:00:00Z",
+                "updated_at": "2024-01-01T00:00:00Z",
+                "last_login": "2024-01-01T00:00:00Z"
+            }
+        }
+    )
 
 class UserLogin(BaseModel):
     username: str
@@ -147,17 +212,23 @@ class UserUpdateRequest(BaseModel):
     )
 
 class UserListResponse(BaseModel):
-    """Schema for user list responses"""
     id: int
     user_name: str
     first_name: str
     last_name: str
     email: str
-    roles: str
+    roles: List[str]  # Changed from str to List[str]
     status: str
     created_at: datetime
     updated_at: datetime
     last_login: Optional[datetime] = None
+
+    @field_validator('roles', mode='before')
+    def validate_roles(cls, v):
+        if isinstance(v, str):
+            # Convert comma-separated string to list
+            return [role.strip() for role in v.split(',')]
+        return v
 
     model_config = ConfigDict(
         from_attributes=True,
@@ -168,7 +239,7 @@ class UserListResponse(BaseModel):
                 "first_name": "John",
                 "last_name": "Doe",
                 "email": "john@example.com",
-                "roles": "user",
+                "roles": ["USER"],
                 "status": "active",
                 "created_at": "2024-01-01T00:00:00Z",
                 "updated_at": "2024-01-01T00:00:00Z",

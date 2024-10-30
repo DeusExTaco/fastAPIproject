@@ -66,7 +66,7 @@ function AdminDashboard({ user }: Readonly<AdminDashboardProps>) {
       }
 
       console.log('Fetching users');
-      const response = await fetch('http://localhost:8000/api/users', {
+      const response = await fetch('http://localhost:8000/api/users/', {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -224,15 +224,17 @@ function AdminDashboard({ user }: Readonly<AdminDashboardProps>) {
     });
   };
 
-  const getBadgeClass = (role: string) => {
-    const roles = role.toLowerCase().split(',');
-    if (roles.includes('admin')) {
-      return 'bg-red-100 text-red-800';
-    } else if (roles.includes('moderator')) {
-      return 'bg-yellow-100 text-yellow-800';
-    }
+  const getBadgeClass = (roles: string | string[] | null) => {
+    if (!roles) return 'bg-gray-100 text-gray-800';
+
+    const roleList = Array.isArray(roles)
+        ? roles.map(r => r.toLowerCase())
+        : roles.toLowerCase().split(',').map(r => r.trim());
+
+    if (roleList.includes('admin')) return 'bg-red-100 text-red-800';
+    if (roleList.includes('moderator')) return 'bg-yellow-100 text-yellow-800';
     return 'bg-green-100 text-green-800';
-  };
+};
 
   const getStatusBadgeClass = (status: string) => {
     switch (status.toLowerCase()) {
@@ -405,10 +407,11 @@ function AdminDashboard({ user }: Readonly<AdminDashboardProps>) {
                               <div className="text-sm text-gray-900">{tableUser.email}</div>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
-                          <span
-                              className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getBadgeClass(tableUser.roles)}`}>
-                            {tableUser.roles.toUpperCase()}
-                          </span>
+                              <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getBadgeClass(tableUser.roles)}`}>
+                                  {Array.isArray(tableUser.roles)
+                                      ? tableUser.roles.join(', ').toUpperCase()
+                                      : String(tableUser.roles).toUpperCase()}
+                              </span>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                           <span

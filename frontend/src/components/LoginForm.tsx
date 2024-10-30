@@ -25,32 +25,44 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onLogin }) => {
     setSuccessMessage('');
 
     try {
-      const response = await fetch('http://localhost:8000/api/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ username, password }),
-      });
+        console.log('Attempting login with username:', username);
+        const response = await fetch('http://localhost:8000/api/auth/login', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ username, password }),
+        });
 
-      if (response.ok) {
+        console.log('Login response status:', response.status);
         const data = await response.json();
-        console.log("data.roles", data.roles)
-        onLogin(data.user_id, username, data.roles, data.access_token);
-        navigate('/dashboard');
-      } else {
-        const errorData = await response.json();
-        setError(errorData.detail || 'Login failed');
-      }
+        console.log('Login response data:', {
+            ...data,
+            access_token: data.access_token ? '[REDACTED]' : undefined
+        });
+
+        if (response.ok) {
+            console.log("Login successful");
+            console.log("User roles:", data.roles);
+            onLogin(data.user_id, username, data.roles, data.access_token);
+            navigate('/dashboard');
+        } else {
+            console.error('Login failed:', data);
+            setError(data.detail || 'Login failed');
+            // Add additional error details if available
+            if (data.message) {
+                console.error('Error message:', data.message);
+            }
+        }
     } catch (error) {
-      console.error('Login error:', error);
-      setError(
-        error instanceof Error
-          ? `Authentication failed: ${error.message}`
-          : 'An error occurred during login. Please try again.'
-      );
+        console.error('Login error:', error);
+        setError(
+            error instanceof Error
+                ? `Authentication failed: ${error.message}`
+                : 'An error occurred during login. Please try again.'
+        );
     }
-  };
+};
 
   return (
     <div className="bg-gray-100 min-h-screen flex items-center justify-center">

@@ -13,7 +13,7 @@ export const PasswordRecovery: React.FC = () => {
     setIsLoading(true);
 
     try {
-      const response = await fetch('http://localhost:8000/api/password-recovery', {
+      const response = await fetch('http://localhost:8000/api/auth/password-recovery', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

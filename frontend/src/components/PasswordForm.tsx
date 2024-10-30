@@ -39,7 +39,7 @@ const validatePassword = async (password: string, userId?: number | null): Promi
   if (userId && password && errors.length === 0) {
     try {
       console.log("Checking password history for user:", userId);
-      const response = await fetch('http://localhost:8000/api/check-password-history', {
+      const response = await fetch('http://localhost:8000/api/auth/check-password-history', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -110,7 +110,7 @@ export const PasswordForm: React.FC<PasswordFormProps> = ({
 
   const generateRandomPassword = async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/generate-password', {
+      const response = await fetch('http://localhost:8000/api/auth/generate-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -142,99 +142,128 @@ export const PasswordForm: React.FC<PasswordFormProps> = ({
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+
+const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors([]);
     setMessage('');
     setShowSuccessMessage(false);
     setIsSubmitting(true);
 
-    if (newPassword !== confirmPassword) {
-      setErrors(["New passwords don't match"]);
-      setIsSubmitting(false);
-      return;
-    }
-
-    // Final validation check including password history
-    const isValid = await validatePasswordInput(newPassword);
-    if (!isValid) {
-      setErrors(validationErrors);
-      setIsSubmitting(false);
-      return;
-    }
-
-    const requestBody = {
-      new_password: newPassword,
-      ...(token ? { token } : {}),
-      ...(userId && !token ? {
-        user_id: userId,
-        current_password: currentPassword
-      } : {})
-    };
-
     try {
-      console.log("Sending password update request:", {
-        ...requestBody,
-        new_password: '[REDACTED]',
-        current_password: currentPassword ? '[REDACTED]' : undefined
-      });
-
-      const response = await fetch('http://localhost:8000/api/update-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody),
-      });
-
-      const data = await response.json();
-      console.log("Password update response:", response.status, data);
-
-      if (response.ok) {
-        setMessage('Password updated successfully!');
-        setShowSuccessMessage(true);
-
-        // Clear form
-        setNewPassword('');
-        setConfirmPassword('');
-        if (requireCurrentPassword) {
-          setCurrentPassword('');
+        if (newPassword !== confirmPassword) {
+            setErrors(["New passwords don't match"]);
+            setIsSubmitting(false);
+            return;
         }
 
-        // Handle relogin/redirect after showing success message
-        if (data.require_relogin) {
-          setTimeout(() => {
-            setMessage('Logging out...');
-            setTimeout(() => {
-              onLogout();
-            }, 1000);
-          }, 2000);
+        const isValid = await validatePasswordInput(newPassword);
+        if (!isValid) {
+            setErrors(validationErrors);
+            setIsSubmitting(false);
+            return;
+        }
+
+        // Base64 decode token if present
+        let processedToken = token;
+        try {
+            if (token) {
+                processedToken = atob(token);
+                console.log('Token processing:', {
+                    originalLength: token.length,
+                    decodedLength: processedToken.length
+                });
+            }
+        } catch (e) {
+            console.error('Token decoding error:', e);
+        }
+
+        const requestBody = {
+            new_password: newPassword,
+            ...(processedToken ? { token: processedToken } : {}),
+            ...(userId && !processedToken ? {
+                user_id: userId,
+                current_password: currentPassword
+            } : {})
+        };
+
+        console.log('Request details:', {
+            hasToken: !!processedToken,
+            hasUserId: !!userId,
+            requiresCurrentPassword: requireCurrentPassword,
+            bodyStructure: {
+                hasPassword: !!requestBody.new_password,
+                hasToken: !!requestBody.token,
+                hasUserId: !!requestBody.user_id,
+                hasCurrentPassword: !!requestBody.current_password
+            }
+        });
+
+        const response = await fetch('http://localhost:8000/api/auth/update-password', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify(requestBody),
+        });
+
+        const data = await response.json();
+        console.log('Response:', {
+            status: response.status,
+            statusText: response.statusText,
+            data: data
+        });
+
+        if (response.ok) {
+            setMessage('Password updated successfully!');
+            setShowSuccessMessage(true);
+
+            setNewPassword('');
+            setConfirmPassword('');
+            if (requireCurrentPassword) {
+                setCurrentPassword('');
+            }
+
+            if (data.require_relogin) {
+                setTimeout(() => {
+                    setMessage('Logging out...');
+                    setTimeout(() => {
+                        onLogout();
+                    }, 1000);
+                }, 2000);
+            } else {
+                setTimeout(() => {
+                    onSuccess();
+                }, 3000);
+            }
         } else {
-          setTimeout(() => {
-            onSuccess();
-          }, 3000);
+            let errorMessage;
+            if (response.status === 422 && Array.isArray(data.detail)) {
+                errorMessage = data.detail.map((error: ValidationError) => error.msg).join(', ');
+            } else {
+                errorMessage = data.detail || 'Failed to update password';
+            }
+
+            console.error('Server error:', errorMessage);
+            setErrors([errorMessage]);
+            setNewPassword('');
+            setConfirmPassword('');
+            if (requireCurrentPassword) {
+                setCurrentPassword('');
+            }
         }
-      } else {
-        if (response.status === 422 && Array.isArray(data.detail)) {
-          setErrors(data.detail.map((error: ValidationError) => error.msg));
-        } else {
-          setErrors([data.detail || 'Failed to update password']);
-        }
-        setNewPassword('');
-        setConfirmPassword('');
-        if (requireCurrentPassword) {
-          setCurrentPassword('');
-        }
-      }
     } catch (error) {
-      console.error('Error updating password:', error);
-      setErrors([
-        error instanceof Error
-          ? `Failed to update password: ${error.message}`
-          : 'An error occurred while updating password. Please try again.'
-      ]);
+        console.error('Password update error:', error);
+        setErrors([
+            error instanceof Error
+                ? `Failed to update password: ${error.message}`
+                : 'An error occurred while updating password. Please try again.'
+        ]);
     } finally {
-      setIsSubmitting(false);
+        setIsSubmitting(false);
     }
-  };
+};
 
   return (
     <div className="w-full max-w-md mx-auto bg-white rounded-lg shadow-lg p-6">

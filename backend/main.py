@@ -1,19 +1,32 @@
+# backend/main.py
 import logging
 from typing import Any
 
-from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from database import init_db
-from routes import router
+from routes.auth_routes import router as auth_router
+from routes.user_routes import router as user_router
+from config import get_settings
 
-# Load environment variables
-load_dotenv()
-app = FastAPI()
-logging.basicConfig(level=logging.INFO)
+# Get settings instance
+settings = get_settings()
+
+app = FastAPI(
+    title=settings.PROJECT_NAME,
+    description=settings.PROJECT_DESCRIPTION,
+    version=settings.API_VERSION,
+)
+
+# Configure logging
+logging.basicConfig(
+    level=getattr(logging, settings.LOG_LEVEL),
+    format=settings.LOG_FORMAT
+)
+logger = logging.getLogger(__name__)
 
 # Custom error handling middleware
 class ErrorHandlingMiddleware(BaseHTTPMiddleware):
@@ -22,10 +35,13 @@ class ErrorHandlingMiddleware(BaseHTTPMiddleware):
             response = await call_next(request)
             return response
         except Exception as e:
-            logging.error(f"Unhandled error: {str(e)}")
+            logger.error(f"Unhandled error: {str(e)}", exc_info=True)
             return JSONResponse(
                 status_code=500,
-                content={"detail": str(e)},
+                content={
+                    "detail": "An internal server error occurred",
+                    "message": str(e) if settings.DEBUG else None
+                },
                 headers={
                     "Access-Control-Allow-Origin": "*",
                     "Access-Control-Allow-Credentials": "true",
@@ -34,14 +50,14 @@ class ErrorHandlingMiddleware(BaseHTTPMiddleware):
                 }
             )
 
-# Configure CORS - keep your existing configuration
+# Configure CORS - Updated to use the new property methods
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-    expose_headers=["*"],
+    allow_origins=settings.cors_origins_list,
+    allow_credentials=settings.CORS_CREDENTIALS,
+    allow_methods=settings.cors_methods_list,
+    allow_headers=settings.cors_headers_list,
+    expose_headers=settings.cors_headers_list,
     max_age=3600,
 )
 
@@ -51,11 +67,35 @@ app.add_middleware(ErrorHandlingMiddleware)
 # Initialize the database
 init_db()
 
-# Include the router
-app.include_router(router, prefix="/api")
+# Include the routers with their prefixes
+app.include_router(
+    auth_router,
+    prefix="/api/auth",
+    tags=["Authentication"]
+)
+
+app.include_router(
+    user_router,
+    prefix="/api/users",
+    tags=["User Management"]
+)
+
+# Health check endpoint
+@app.get("/api/health")
+async def health_check():
+    return {
+        "status": "healthy",
+        "version": settings.API_VERSION,
+        "debug_mode": settings.DEBUG,
+        "environment": settings.ENVIRONMENT
+    }
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
-
-# uvicorn main:app --reload
+    uvicorn.run(
+        "main:app",
+        host=settings.HOST,
+        port=settings.PORT,
+        reload=settings.DEBUG,
+        log_level=settings.LOG_LEVEL.lower()
+    )

@@ -11,7 +11,7 @@ export const PasswordRecoveryResult: React.FC<PasswordRecoveryResultProps> = ({ 
   const handleResendClick = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch('http://localhost:8000/api/resend-password-recovery', {
+      const response = await fetch('http://localhost:8000/api/auth/resend-password-recovery', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
