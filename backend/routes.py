@@ -6,19 +6,39 @@ import base64
 import bcrypt
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy import func, text
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from starlette import status
+from datetime import datetime, timedelta, UTC
+from pydantic import BaseModel
+from models import UserStatus
 
-from auth import get_current_user, check_admin
+
+import email_utils
+import models
+import schema
+from auth import get_current_user, check_admin, create_token
 from database import get_db
 from email_utils import send_recovery_email
 from models import User, UserRole
 from random_password import PasswordGenerator
-from schema import (UserCreate, UserResponse, UserLogin, UserUpdate,
+from schema import (UserResponse, UserLogin, UserUpdateRequest,
                     PasswordUpdateRequest, PasswordRecoveryInitRequest)
 
 router = APIRouter()
+
+class UserListResponse(BaseModel):
+    id: int
+    user_name: str
+    first_name: str
+    last_name: str
+    email: str
+    roles: str
+    status: str
+    created_at: datetime | None
+    last_login: datetime | None
+
+    class Config:
+        from_attributes = True
 
 
 class PasswordService:
@@ -68,6 +88,39 @@ class UserService:
     def get_user_by_reset_token(self, token: str) -> Optional[User]:
         return self.db.query(User).filter(User.reset_token == token).first()
 
+    def update_user(self, user: User, update_data: dict) -> User:
+        """
+        Update user with the provided data
+
+        Args:
+            user: User object to update
+            update_data: Dictionary containing the fields to update
+
+        Returns:
+            Updated User object
+        """
+        # Convert roles to string format if present in update data
+        if 'roles' in update_data and update_data['roles']:
+            if isinstance(update_data['roles'], list):
+                update_data['roles'] = ','.join([role.value for role in update_data['roles']])
+
+        # Update user attributes
+        for key, value in update_data.items():
+            if hasattr(user, key) and value is not None:
+                setattr(user, key, value)
+
+        try:
+            self.db.commit()
+            self.db.refresh(user)
+            return user
+        except Exception as e:
+            self.db.rollback()
+            logging.error(f"Error updating user: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Error updating user"
+            )
+
 
 @router.post("/password-recovery", status_code=status.HTTP_200_OK)
 async def password_recovery(
@@ -110,7 +163,6 @@ async def update_password(
     logging.info("Received password update request")
 
     try:
-        user = None
         # Check if this is a token-based reset
         if request.token:
             try:
@@ -155,12 +207,17 @@ async def update_password(
             "last_passwords": new_last_passwords,
         }
 
-        # Clear reset token fields if this was a token-based reset
+        # If this was a token-based reset, check if it's a new user setup
         if request.token:
             update_data.update({
                 "reset_token": None,
                 "reset_token_expiry": None
             })
+
+            # If user's status is pending, change it to active
+            if user.status == UserStatus.PENDING:
+                update_data["status"] = UserStatus.ACTIVE
+                logging.info(f"Activating user account for {user.email}")
 
         db.query(User).filter(User.id == user.id).update(
             update_data,
@@ -170,7 +227,8 @@ async def update_password(
 
         return {
             "message": "Password updated successfully",
-            "require_relogin": bool(request.current_password)
+            "require_relogin": bool(request.current_password),
+            "status_updated": user.status == UserStatus.PENDING
         }
 
     except HTTPException:
@@ -199,48 +257,54 @@ def generate_password(options: dict):
         raise HTTPException(status_code=400, detail=str(e))
 
 
-# Keep other existing endpoints (login, create user, etc.)
-
 # Test route
 @router.get("/")
 async def read_root():
     return {"message": "Hello from FastAPI!"}
 
-# Create user
-@router.post("/users", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
-def create_user(user: UserCreate, db: Session = Depends(get_db)):
-    try:
-        user_data = user.model_dump()
-        user_data['hashed_password'] = PasswordService.hash_password(user_data.pop('password'))
-        user_data['roles'] = ','.join([role.value for role in user_data['roles']])
-
-        db_user = User(**user_data)
-        db.add(db_user)
-        db.commit()
-        db.refresh(db_user)
-
-        db_user.roles = [UserRole(role) for role in db_user.roles.split(',')]
-        return db_user
-    except IntegrityError:
-        db.rollback()
-        raise HTTPException(status_code=400, detail="Username or email already exists")
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
 
 # Login
 @router.post("/login", status_code=status.HTTP_200_OK)
 def login(user_login: UserLogin, db: Session = Depends(get_db)):
+
     user_service = UserService(db)
     user = user_service.get_user_by_username(user_login.username)
+
+    logging.info(f"Login attempt for username: {user_login.username}")
+
     if not user or not PasswordService.verify_password(user_login.password, user.hashed_password):
+        logging.warning(f"Failed login attempt for username: {user_login.username}")
         raise HTTPException(status_code=401, detail="Invalid username or password")
+
+    # Update last login time
+    user.last_login = datetime.now(UTC)
+    db.commit()
+
+    # Normalize user roles
+    if isinstance(user.roles, str):
+        user_roles = [role.strip() for role in user.roles.split(',')]
+    else:
+        user_roles = [role.strip() for role in user.roles]
+
+    logging.info(f"User roles for {user.user_name}: {user_roles}")
+
+    # Create token data with proper role format
+    token_data = {
+        "sub": user.user_name,
+        "roles": user_roles,
+        "user_id": user.id
+    }
+
+    token = create_token(token_data)
+    logging.info(f"Generated token for user {user.user_name} with roles {user_roles}")
+
     return {
         "message": "Login successful",
         "user_id": user.id,
-        "roles": user.roles.split(',')
+        "roles": user_roles,
+        "access_token": token,
+        "token_type": "bearer"
     }
-
 
 # Get user
 @router.get("/users/{user_id}")
@@ -260,44 +324,170 @@ def get_user(user_id: int, current_user: User = Depends(get_current_user), db: S
 
 # Delete User
 @router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_user(user_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    check_admin(current_user)
-    user_service = UserService(db)
-    user_to_delete = user_service.get_user_by_id(user_id)
-
-    if not user_to_delete:
-        raise HTTPException(status_code=404, detail="User not found")
-    if user_to_delete.id == current_user.id:
-        raise HTTPException(status_code=400, detail="Cannot delete your own account")
-
-    db.delete(user_to_delete)
-    db.commit()
-    return {"message": f"User {user_id} has been deleted successfully"}
-
-# Update user
-@router.put("/users/{user_id}", response_model=UserResponse, status_code=status.HTTP_202_ACCEPTED)
-def edit_user(
+def delete_user(
         user_id: int,
-        user_update: UserUpdate,
         current_user: User = Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
-    user_service = UserService(db)
-    db_user = user_service.get_user_by_id(user_id)
+    """
+    Delete a user - Admin only endpoint
+    """
+    logging.info(f"Delete user request received for user_id: {user_id} from user: {current_user.user_name}")
 
-    if not db_user:
-        raise HTTPException(status_code=404, detail="User not found")
-    if current_user.id != user_id and 'ADMIN' not in current_user.roles.split(','):
-        raise HTTPException(status_code=403, detail="You don't have permission to edit this user")
+    try:
+        # Verify admin access
+        check_admin(current_user)
 
-    update_data = user_update.model_dump(exclude_unset=True)
-    if 'ADMIN' not in current_user.roles.split(','):
-        update_data.pop('roles', None)
-        update_data.pop('status', None)
+        user_service = UserService(db)
+        user_to_delete = user_service.get_user_by_id(user_id)
 
-    user_service.update_user(db_user, update_data)
-    db_user.roles = db_user.roles.split(',') if db_user.roles else []
-    return db_user
+        if not user_to_delete:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+
+        if user_to_delete.id == current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot delete your own account"
+            )
+
+        db.delete(user_to_delete)
+        db.commit()
+
+        logging.info(f"Successfully deleted user {user_id}")
+        # For 204 No Content, we simply return None
+        return None
+
+    except HTTPException as http_exc:
+        logging.error(f"HTTP error in delete_user: {http_exc.detail}")
+        raise http_exc
+    except Exception as e:
+        logging.error(f"Unexpected error in delete_user: {str(e)}")
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An unexpected error occurred while deleting the user: {str(e)}"
+        )
+
+# Update user
+@router.put("/users/{user_id}", response_model=UserResponse, status_code=status.HTTP_202_ACCEPTED)
+async def edit_user(
+        user_id: int,
+        user_update: UserUpdateRequest,
+        current_user: User = Depends(get_current_user),
+        db: Session = Depends(get_db)
+):
+    """
+    Update user details - Admin only endpoint
+    """
+    logging.info(f"Edit user request received for user_id: {user_id}")
+    logging.info(f"Update data received: {user_update.model_dump()}")
+
+    try:
+        # Verify admin access
+        check_admin(current_user)
+
+        user_service = UserService(db)
+        db_user = user_service.get_user_by_id(user_id)
+
+        if not db_user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+
+        # Convert the Pydantic model to a dictionary and remove None values
+        update_data = {k: v for k, v in user_update.model_dump().items() if v is not None}
+
+        # Handle roles conversion
+        if 'roles' in update_data and update_data['roles']:
+            try:
+                # Validate each role
+                roles = [role for role in update_data['roles']]
+                valid_roles = {role.value for role in UserRole}
+                invalid_roles = [role for role in roles if role not in valid_roles]
+
+                if invalid_roles:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Invalid roles: {', '.join(invalid_roles)}"
+                    )
+
+                update_data['roles'] = ','.join(roles)
+            except ValueError as e:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Invalid role format: {str(e)}"
+                )
+
+        # Handle status conversion
+        if 'status' in update_data and update_data['status']:
+            try:
+                # Handle both string and enum cases
+                if isinstance(update_data['status'], str):
+                    status_value = update_data['status']
+                elif isinstance(update_data['status'], UserStatus):
+                    status_value = update_data['status'].value
+                else:
+                    status_value = str(update_data['status'])
+
+                # Validate the status
+                try:
+                    update_data['status'] = UserStatus(status_value)
+                except ValueError:
+                    valid_statuses = ', '.join(status.value for status in UserStatus)
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Invalid status: {status_value}. Valid statuses are: {valid_statuses}"
+                    )
+            except Exception as e:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Invalid status format: {str(e)}"
+                )
+
+        logging.info(f"Processed update data: {update_data}")
+
+        try:
+            updated_user = user_service.update_user(db_user, update_data)
+
+            # Format the response
+            response_data = {
+                "id": updated_user.id,
+                "user_name": updated_user.user_name,
+                "first_name": updated_user.first_name,
+                "last_name": updated_user.last_name,
+                "email": updated_user.email,
+                "roles": updated_user.roles.split(',') if updated_user.roles else [],
+                "status": updated_user.status.value,
+                "created_at": updated_user.created_at,
+                "updated_at": updated_user.updated_at,
+                "last_login": updated_user.last_login
+            }
+
+            return response_data
+
+        except Exception as e:
+            logging.error(f"Error updating user: {str(e)}")
+            db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=str(e)
+            )
+
+    except HTTPException as http_exc:
+        logging.error(f"HTTP error in edit_user: {http_exc.detail}")
+        raise http_exc
+    except Exception as e:
+        logging.error(f"Unexpected error in edit_user: {str(e)}")
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
 
 @router.post("/resend-password-recovery")
 def resend_password_recovery(
@@ -324,3 +514,183 @@ def resend_password_recovery(
 
     return {"message": f"Password recovery email resent to {request.get('email')}"}
 
+
+@router.post("/check-password-history", status_code=status.HTTP_200_OK)
+async def check_password_history(request: dict, db: Session = Depends(get_db)):
+    """
+    Check if a password exists in the user's password history
+    """
+    logging.info("Checking password history")
+
+    if not request.get("user_id"):
+        raise HTTPException(status_code=400, detail="User ID is required")
+    if not request.get("new_password"):
+        raise HTTPException(status_code=400, detail="New password is required")
+
+    try:
+        user_service = UserService(db)
+        user = user_service.get_user_by_id(request.get("user_id"))
+
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        # Check if the new password matches any in the history
+        if not PasswordService.check_password_history(
+                request.get("new_password"),
+                user.last_passwords or []
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail="Password found in history"
+            )
+
+        return {"message": "Password not found in history"}
+    except Exception as e:
+        logging.error(f"Error checking password history: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail="An error occurred while checking password history"
+        )
+
+
+@router.post("/users")
+async def create_user(
+        user_data: schema.UserCreate,
+        background_tasks: BackgroundTasks,
+        db: Session = Depends(get_db),
+        current_user: models.User = Depends(get_current_user)
+):
+    """
+    Create a new user with admin privileges required.
+    Also sends a password reset email to the new user.
+    """
+    logging.info(f"Create user request received from user: {current_user.user_name}")
+    logging.info(f"Current user roles: {current_user.roles}")
+    logging.info(f"Request data: {user_data}")
+
+    try:
+        # Verify admin access
+        check_admin(current_user)
+
+        # Check if user already exists
+        existing_user = db.query(models.User).filter(
+            (models.User.email == user_data.email) |
+            (models.User.user_name == user_data.user_name)
+        ).first()
+
+        if existing_user:
+            logging.warning(f"Attempt to create duplicate user: {user_data.email}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="User with this email or username already exists"
+            )
+
+        # Convert roles to string format for database storage
+        roles_str = ",".join([role.value for role in user_data.roles])
+        logging.info(f"Processed roles for new user: {roles_str}")
+
+        # Generate reset token first
+        reset_token = secrets.token_urlsafe(32)  # Using secrets for token generation
+        reset_token_expiry = datetime.now(UTC) + timedelta(hours=24)
+
+        # Create new user instance with token
+        new_user = models.User(
+            first_name=user_data.first_name,
+            last_name=user_data.last_name,
+            user_name=user_data.user_name,
+            email=user_data.email,
+            hashed_password=PasswordService.hash_password(user_data.password),
+            roles=roles_str,
+            status=user_data.status.value if user_data.status else models.UserStatus.PENDING.value,
+            reset_token=reset_token,
+            reset_token_expiry=reset_token_expiry
+        )
+
+        try:
+            # Add and commit in a single transaction
+            db.add(new_user)
+            db.commit()
+            db.refresh(new_user)
+            logging.info(f"Successfully created new user: {new_user.user_name}")
+
+            # Send welcome email with reset token
+            try:
+                background_tasks.add_task(
+                    email_utils.send_welcome_email,
+                    email=new_user.email,
+                    token=reset_token,
+                    username=new_user.user_name
+                )
+                logging.info(f"Queued welcome email for: {new_user.email}")
+            except Exception as e:
+                logging.error(f"Error queuing welcome email: {str(e)}")
+                # Don't raise an exception here, as the user is already created
+
+            # Return success response
+            return {
+                "message": "User created successfully and welcome email queued",
+                "user_id": new_user.id,
+                "username": new_user.user_name,
+                "email": new_user.email,
+                "status": new_user.status,
+                "roles": new_user.roles.split(',') if new_user.roles else []
+            }
+
+        except Exception as e:
+            db.rollback()
+            logging.error(f"Database error while creating user: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Error occurred while creating user"
+            )
+
+    except HTTPException as http_exc:
+        # Log and re-raise HTTP exceptions
+        logging.error(f"HTTP error in create_user: {http_exc.detail}")
+        raise http_exc
+    except Exception as e:
+        # Log and handle unexpected errors
+        logging.error(f"Unexpected error in create_user: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An unexpected error occurred: {str(e)}"
+        )
+
+
+@router.get("/users", response_model=List[UserListResponse])
+async def get_all_users(
+        current_user: User = Depends(get_current_user),
+        db: Session = Depends(get_db)
+):
+    """
+    Get all users - Admin only endpoint
+    """
+    try:
+        # Log the attempt
+        logging.info(f"User {current_user.user_name} attempting to fetch all users")
+
+        # Verify admin access
+        if 'admin' not in current_user.roles.lower():
+            logging.warning(f"Non-admin user {current_user.user_name} attempted to fetch users")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Admin privileges required"
+            )
+
+        # Query all users
+        users = db.query(User).all()
+        logging.info(f"Successfully fetched {len(users)} users")
+
+        # Return the users
+        return users
+
+    except HTTPException as http_exc:
+        # Re-raise HTTP exceptions
+        raise http_exc
+    except Exception as e:
+        # Log the error
+        logging.error(f"Error fetching users: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error fetching users: {str(e)}"
+        )

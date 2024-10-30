@@ -1,18 +1,29 @@
-import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 
 interface LoginProps {
-  onLogin: (userId: number, username: string, roles: string[]) => void;
+  onLogin: (userId: number, username: string, roles: string[], token: string) => void;
 }
 
-function Login({ onLogin }: Readonly<LoginProps>) {
+export const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  useEffect(() => {
+    if (searchParams.get('setup') === 'success') {
+      setSuccessMessage('Password has been set up successfully. Please log in with your new credentials.');
+    }
+  }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
+    setSuccessMessage('');
+
     try {
       const response = await fetch('http://localhost:8000/api/login', {
         method: 'POST',
@@ -24,14 +35,20 @@ function Login({ onLogin }: Readonly<LoginProps>) {
 
       if (response.ok) {
         const data = await response.json();
-        onLogin(data.user_id, username, data.roles);
+        console.log("data.roles", data.roles)
+        onLogin(data.user_id, username, data.roles, data.access_token);
         navigate('/dashboard');
       } else {
         const errorData = await response.json();
         setError(errorData.detail || 'Login failed');
       }
     } catch (error) {
-      setError('An error occurred. Please try again.');
+      console.error('Login error:', error);
+      setError(
+        error instanceof Error
+          ? `Authentication failed: ${error.message}`
+          : 'An error occurred during login. Please try again.'
+      );
     }
   };
 
@@ -41,7 +58,17 @@ function Login({ onLogin }: Readonly<LoginProps>) {
         <form onSubmit={handleSubmit}>
           <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">Login</h2>
 
-          {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
+          {error && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+              <p className="text-red-600 text-center text-sm">{error}</p>
+            </div>
+          )}
+
+          {successMessage && (
+            <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md">
+              <p className="text-green-600 text-center text-sm">{successMessage}</p>
+            </div>
+          )}
 
           <div className="mb-4">
             <label htmlFor="username" className="block text-gray-700 font-medium mb-2">
@@ -53,9 +80,7 @@ function Login({ onLogin }: Readonly<LoginProps>) {
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required
-              autoComplete="username"
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              placeholder="Enter your username"
             />
           </div>
 
@@ -69,15 +94,13 @@ function Login({ onLogin }: Readonly<LoginProps>) {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              autoComplete="current-password"
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              placeholder="Enter your password"
             />
           </div>
 
           <button
             type="submit"
-            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 rounded-lg transition duration-200"
+            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 rounded-lg"
           >
             Login
           </button>
@@ -94,6 +117,6 @@ function Login({ onLogin }: Readonly<LoginProps>) {
       </div>
     </div>
   );
-}
+};
 
 export default Login;

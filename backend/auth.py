@@ -1,5 +1,6 @@
 import os
 from typing import Optional
+from datetime import datetime, timedelta, UTC
 
 import jwt
 from cryptography.hazmat.backends import default_backend
@@ -13,6 +14,7 @@ from sqlalchemy.orm import Session
 from database import get_db
 from models import User
 from schema import TokenData
+import logging
 
 # Load environment variables
 load_dotenv()
@@ -40,12 +42,15 @@ with open(PUBLIC_KEY_PATH, "rb") as key_file:
     )
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+logging.info(f"In auth.py oauth2_scheme: {oauth2_scheme}")
+
 
 def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+    logging.info(f"token in auth.py get_current_user: {token}")
     credentials_exception = HTTPException(
         status_code=401,
         detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
+        headers={"WWW-Authenticate": "Bearer"}
     )
     try:
         payload = jwt.decode(token, PUBLIC_KEY, algorithms=["RS256"])
@@ -53,18 +58,42 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
         if username is None:
             raise credentials_exception
         token_data = TokenData(username=username)
-    except PyJWTError:
+    except PyJWTError as e:
+        print("JWT decoding error:", e)  # Debugging output
         raise credentials_exception
     user = db.query(User).filter(User.user_name == token_data.username).first()
     if user is None:
         raise credentials_exception
     return user
 
+
 def check_admin(user: User):
-    if 'ADMIN' not in user.roles.split(','):
+    user_roles = user.roles.split(',') if isinstance(user.roles, str) else user.roles
+    if 'ADMIN' not in user_roles:
         raise HTTPException(status_code=403, detail="Only admins can perform this action")
+
 
 def create_token(data: dict):
     to_encode = data.copy()
+
+    # Handle roles processing
+    roles = data.get("roles", [])
+    if isinstance(roles, str):
+        roles = [r.strip() for r in roles.split(',')]
+    elif not isinstance(roles, list):
+        roles = [str(roles)]
+
+    # Convert all roles to uppercase
+    roles = [r.upper() for r in roles]
+
+    # Add expiration using timezone-aware datetime
+    expire = datetime.now(UTC) + timedelta(days=1)
+    to_encode.update({
+        "exp": expire,
+        "roles": roles,
+        "sub": data.get("sub", ""),
+        "iat": datetime.now(UTC)  # Added issued at time
+    })
+
     encoded_jwt = jwt.encode(to_encode, PRIVATE_KEY, algorithm="RS256")
     return encoded_jwt

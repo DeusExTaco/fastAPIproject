@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import PasswordRecoveryResult from './PasswordRecoveryResult';
+import { PasswordRecoveryResult } from './PasswordRecoveryResult';
 
-const PasswordRecovery: React.FC = () => {
+export const PasswordRecovery: React.FC = () => {
   const [email, setEmail] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
@@ -28,7 +28,12 @@ const PasswordRecovery: React.FC = () => {
         setError(errorData.detail || 'An error occurred while sending the recovery email.');
       }
     } catch (error) {
-      setError('An error occurred while sending the recovery email. Please try again.');
+      console.error('Password recovery request error:', error);
+      setError(
+        error instanceof Error
+          ? `Failed to send recovery email: ${error.message}`
+          : 'An error occurred while sending the recovery email. Please try again.'
+      );
     } finally {
       setIsLoading(false);
     }
@@ -103,6 +108,6 @@ const PasswordRecovery: React.FC = () => {
       </div>
     </div>
   );
-}
+};
 
 export default PasswordRecovery;

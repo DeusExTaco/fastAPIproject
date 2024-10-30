@@ -4,7 +4,7 @@ interface PasswordRecoveryResultProps {
   email: string;
 }
 
-const PasswordRecoveryResult: React.FC<PasswordRecoveryResultProps> = ({ email }) => {
+export const PasswordRecoveryResult: React.FC<PasswordRecoveryResultProps> = ({ email }) => {
   const [resendMessage, setResendMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -23,10 +23,17 @@ const PasswordRecoveryResult: React.FC<PasswordRecoveryResultProps> = ({ email }
         const data = await response.json();
         setResendMessage(data.message);
       } else {
-        setResendMessage('Failed to resend the email. Please try again.');
+        const errorData = await response.json().catch(() => null);
+        const errorMessage = errorData?.message || 'Failed to resend the email. Please try again.';
+        setResendMessage(errorMessage);
       }
     } catch (error) {
-      setResendMessage('An error occurred. Please try again later.');
+      console.error('Password recovery email resend error:', error);
+      setResendMessage(
+        error instanceof Error
+          ? `Error: ${error.message}`
+          : 'An error occurred. Please try again later.'
+      );
     } finally {
       setIsLoading(false);
     }
