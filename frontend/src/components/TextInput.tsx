@@ -1,5 +1,5 @@
-import React, { ChangeEvent, CSSProperties } from 'react';
-import { Input } from "@material-tailwind/react";
+import React, {ChangeEvent, CSSProperties} from 'react';
+import {Input} from "@material-tailwind/react";
 
 // Define the props you want to use, omitting unwanted ones.
 interface TextInputProps {
@@ -14,7 +14,8 @@ interface TextInputProps {
   style?: CSSProperties;
   title?: string;
   pattern?: string;
-  required?: boolean; // Add 'required' here
+  required?: boolean;
+  disabled?: boolean;
 }
 
 // Wrapper to exclude specific props from being passed down
@@ -31,6 +32,7 @@ const TextInput: React.FC<TextInputProps> = ({
   className = "",
   type = "text",
   required = false,
+  disabled = false,
   ...props
 }) => {
   // Filter unwanted props here
@@ -45,6 +47,7 @@ const TextInput: React.FC<TextInputProps> = ({
       type={type}
       className={className}
       required={required}
+      disabled={disabled}
       {...filteredProps}
     />
   );

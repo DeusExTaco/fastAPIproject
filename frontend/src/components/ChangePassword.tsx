@@ -1,8 +1,7 @@
-// ChangePassword.tsx
-import React, { useCallback } from 'react';
+import React, {useCallback} from 'react';
 import PasswordForm from './PasswordForm';
 import ErrorBoundary from './ErrorBoundary';
-import { useAuth } from '../UseAuth';  // Add this import
+import {useAuth} from '../UseAuth'; // Add this import
 
 interface ChangePasswordProps {
   userId: number;

@@ -1,9 +1,9 @@
-import React, { useState } from "react";
-import { useAuth } from '../UseAuth';
+import React, {useState} from "react";
+import {useAuth} from '../UseAuth';
 import ErrorBoundary from './ErrorBoundary';
-import { X } from 'lucide-react';
+import {X} from 'lucide-react';
 import TextInput from "@/components/TextInput.tsx";
-import { Select, Option, SelectProps } from "@material-tailwind/react";
+import {Option, Select, SelectProps} from "@material-tailwind/react";
 import MaterialButton from './MaterialButton';
 
 enum UserRole {
@@ -207,21 +207,50 @@ const Signup: React.FC = () => {
                         required
                         className="mb-4"
                     />
-                    <Select
-                        value={formState.role}
-                        onChange={handleRoleChange}
-                        label="Role"
-                        className="w-full"
-                        placeholder=" "
-                        onPointerEnterCapture={() => {
-                        }}
-                        onPointerLeaveCapture={() => {
-                        }}
-                    >
-                        <Option value={UserRole.USER}>User</Option>
-                        <Option value={UserRole.MODERATOR}>Moderator</Option>
-                        <Option value={UserRole.ADMIN}>Admin</Option>
-                    </Select>
+                     <Select
+                            value={formState.role}
+                            onChange={handleRoleChange}
+                            label="Role"
+                            className="w-full"
+                            placeholder=" "
+                            onPointerEnterCapture={() => {
+                            }}
+                            onPointerLeaveCapture={() => {
+                            }}
+                            lockScroll={true}
+                            selected={(element) =>
+                                element &&
+                                React.cloneElement(element, {
+                                    disabled: false,
+                                    className: "text-gray-900 list-none",
+                                })
+                            }
+                            menuProps={{
+                                className: "[&>ul]:p-0 [&>ul>li]:px-3 [&>ul>li]:py-2 [&>ul>li]:text-gray-900 [&>ul>li.selected]:bg-white [&>ul>li]:bg-white [&>ul>li:hover]:bg-blue-gray-50 [&>ul>li:hover]:text-blue-gray-900 [&>ul>li]:list-none"
+                            }}
+                            containerProps={{
+                                className: "[&>span]:list-none"
+                            }}
+                        >
+                            <Option
+                                value={UserRole.USER}
+                                className="bg-white list-none"
+                            >
+                                User
+                            </Option>
+                            <Option
+                                value={UserRole.MODERATOR}
+                                className="bg-white list-none"
+                            >
+                                Moderator
+                            </Option>
+                            <Option
+                                value={UserRole.ADMIN}
+                                className="bg-white list-none"
+                            >
+                                Admin
+                            </Option>
+                        </Select>
                     <MaterialButton
                         type="submit"
                         disabled={loading}

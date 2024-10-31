@@ -1,5 +1,8 @@
-import React, { useState, useEffect, FormEvent, ChangeEvent } from 'react';
-import { useAuth } from '../UseAuth';
+import React, {ChangeEvent, FormEvent, useEffect, useState} from 'react';
+import {useAuth} from '../UseAuth';
+import {Option, Select} from "@material-tailwind/react";
+import MaterialButton from './MaterialButton';
+import TextInput from "@/components/TextInput";
 
 interface EditUserProps {
     userId: number;
@@ -56,6 +59,7 @@ const EditUser: React.FC<EditUserProps> = ({ userId, onClose, onUserUpdated }) =
 
     // Keep track of the original data to optimize cancellation
     const [originalData, setOriginalData] = useState<UserData | null>(null);
+
 
     useEffect(() => {
         let isMounted = true;
@@ -197,13 +201,25 @@ const EditUser: React.FC<EditUserProps> = ({ userId, onClose, onUserUpdated }) =
         }
     };
 
-    const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>): void => {
+    type InputChangeEvent = ChangeEvent<HTMLInputElement | HTMLSelectElement>;
+
+    const handleInputChange = (e: InputChangeEvent): void => {
         const { name, value } = e.target;
         setUserData(prev => ({
             ...prev,
             [name]: value
         }));
     };
+
+    const handleStatusChange = (value: string | undefined): void => {
+        if (value) {
+            setUserData(prev => ({
+                ...prev,
+                status: value as UserStatus
+            }));
+        }
+    };
+
 
     const handleRoleToggle = (role: Role): void => {
         setRoleError(null);
@@ -240,63 +256,56 @@ const EditUser: React.FC<EditUserProps> = ({ userId, onClose, onUserUpdated }) =
             <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                     <div>
-                        <label className="block text-sm font-medium text-gray-700">Username</label>
-                        <input
+                        <TextInput
                             type="text"
-                            name="user_name"
+                            label="Username"
                             value={userData.user_name}
                             onChange={handleInputChange}
-                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                             disabled
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700">Email</label>
-                        <input
+                        <TextInput
                             type="email"
-                            name="email"
+                            label="Email"
                             value={userData.email}
                             onChange={handleInputChange}
-                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700">First Name</label>
-                        <input
+                        <TextInput
                             type="text"
-                            name="first_name"
+                            label="First Name"
                             value={userData.first_name}
                             onChange={handleInputChange}
-                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700">Last Name</label>
-                        <input
+                        <TextInput
                             type="text"
-                            name="last_name"
+                            label="Last Name"
                             value={userData.last_name}
                             onChange={handleInputChange}
-                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                         />
                     </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Roles</label>
-                        <div className="space-y-2">
+                    <div className="flex items-start space-x-4 mb-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Roles</label>
                             {AVAILABLE_ROLES.map((role) => (
-                                <div key={role} className="flex items-center">
+                                <div key={role} className="flex items-center mb-1"> {/* Small margin for control */}
                                     <input
                                         type="checkbox"
                                         id={`role-${role}`}
                                         checked={userData.roles.has(role)}
                                         onChange={() => handleRoleToggle(role)}
                                         className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                        style={{marginBottom: '0px'}} // Inline style for further control
                                     />
                                     <label
                                         htmlFor={`role-${role}`}
                                         className="ml-2 block text-sm text-gray-700"
                                     >
-                                        {role}
+                                        {role.charAt(0).toUpperCase() + role.slice(1).toLowerCase()}
                                     </label>
                                 </div>
                             ))}
@@ -304,36 +313,74 @@ const EditUser: React.FC<EditUserProps> = ({ userId, onClose, onUserUpdated }) =
                                 <p className="text-sm text-red-600 mt-1">{roleError}</p>
                             )}
                         </div>
-                    </div>
-                    <div className="self-start mt-8">
-                        <label className="block text-sm font-medium text-gray-700">Status</label>
-                        <select
-                            name="status"
-                            value={userData.status}
-                            onChange={handleInputChange}
-                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                        >
-                            <option value="ACTIVE">ACTIVE</option>
-                            <option value="INACTIVE">INACTIVE</option>
-                            <option value="PENDING">PENDING</option>
-                        </select>
+
+                        <div className="self-start mt-1">
+                            <Select
+                                value={userData.status}
+                                onChange={handleStatusChange}
+                                label="Status"
+                                className="w-full text-sm"
+                                placeholder=" "
+                                onPointerEnterCapture={() => {
+                                }}
+                                onPointerLeaveCapture={() => {
+                                }}
+                                lockScroll={true}
+                                selected={(element) =>
+                                    element &&
+                                    React.cloneElement(element, {
+                                        disabled: false,
+                                        className: "text-gray-900 list-none",
+                                    })
+                                }
+                                menuProps={{
+                                    className: "[&>ul]:p-0 [&>ul>li]:px-3 [&>ul>li]:py-2 [&>ul>li]:text-gray-900 [&>ul>li.selected]:bg-white [&>ul>li]:bg-white [&>ul>li:hover]:bg-blue-gray-50 [&>ul>li:hover]:text-blue-gray-900 [&>ul>li]:list-none"
+                                }}
+                                containerProps={{
+                                    className: "[&>span]:list-none"
+                                }}
+                            >
+                                <Option
+                                    value="ACTIVE"
+                                    className="bg-white list-none"
+                                >
+                                    Active
+                                </Option>
+                                <Option
+                                    value="INACTIVE"
+                                    className="bg-white list-none"
+                                >
+                                    Inactive
+                                </Option>
+                                <Option
+                                    value="PENDING"
+                                    className="bg-white list-none"
+                                >
+                                    Pending
+                                </Option>
+                            </Select>
+                        </div>
                     </div>
                 </div>
 
                 <div className="flex justify-end space-x-3 mt-6">
-                    <button
+                    <MaterialButton
                         type="button"
                         onClick={handleCancel}
+                        color="blue"
+                        variant="outlined"
                         className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
                     >
                         Cancel
-                    </button>
-                    <button
+                    </MaterialButton>
+                    <MaterialButton
                         type="submit"
+                        color="blue"
+                        variant="outlined"
                         className="px-4 py-2 bg-blue-600 border border-transparent rounded-md text-sm font-medium text-white hover:bg-blue-700"
                     >
                         Save Changes
-                    </button>
+                    </MaterialButton>
                 </div>
             </form>
         </div>

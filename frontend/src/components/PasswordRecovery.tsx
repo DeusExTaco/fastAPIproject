@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { PasswordRecoveryResult } from './PasswordRecoveryResult';
+import TextInput from './TextInput';
+import MaterialButton from './MaterialButton';
 
 export const PasswordRecovery: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -68,34 +70,25 @@ export const PasswordRecovery: React.FC = () => {
 
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
-            <label
-              htmlFor="email"
-              className="block text-gray-700 font-semibold mb-2"
-            >
-              Email address
-            </label>
-            <input
+            <TextInput
               type="email"
-              id="email"
+              label="Email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-2 border border-blue-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="email@example.com"
               required
-              disabled={isLoading}
+              className="mb-4"
             />
           </div>
-          <button
-            type="submit"
-            disabled={isLoading}
-            className={`w-full ${
-              isLoading 
-                ? 'bg-blue-300 cursor-not-allowed' 
-                : 'bg-blue-500 hover:bg-blue-600'
-            } text-white font-bold py-2 px-4 rounded-lg transition duration-300`}
+          <MaterialButton
+              type="submit"
+              disabled={isLoading}
+              color="blue"
+              className="w-full py-2"
+              fullWidth
+              variant={isLoading ? "filled" : "gradient"}
           >
-            {isLoading ? 'Sending...' : 'Continue'}
-          </button>
+              {isLoading ? 'Sending...' : 'Continue'}
+          </MaterialButton>
           <div className="text-center mt-6">
             <a
               href="/"

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import MaterialButton from './MaterialButton';
 
 interface PasswordRecoveryResultProps {
   email: string;
@@ -60,17 +61,17 @@ export const PasswordRecoveryResult: React.FC<PasswordRecoveryResultProps> = ({ 
             </>
           )}
         </p>
-        <button
-          onClick={handleResendClick}
-          disabled={isLoading}
-          className={`w-full ${
-            isLoading 
-              ? 'bg-blue-300 cursor-not-allowed' 
-              : 'bg-blue-500 hover:bg-blue-600'
-          } text-white font-bold py-2 px-4 rounded-lg transition duration-300`}
-        >
-          {isLoading ? 'Sending...' : 'Resend Email'}
-        </button>
+        <MaterialButton
+              type="submit"
+              disabled={isLoading}
+              onClick={handleResendClick}
+              color="blue"
+              className="w-full py-2"
+              fullWidth
+              variant={isLoading ? "filled" : "gradient"}
+          >
+               {isLoading ? 'Sending...' : 'Resend Email'}
+          </MaterialButton>
         <div className="text-center mt-6">
           <a
             href="/"
@@ -84,4 +85,3 @@ export const PasswordRecoveryResult: React.FC<PasswordRecoveryResultProps> = ({ 
   );
 };
 
-export default PasswordRecoveryResult;

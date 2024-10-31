@@ -1,5 +1,5 @@
-import React, { CSSProperties, MouseEvent } from 'react';
-import { Button } from "@material-tailwind/react";
+import React, {CSSProperties, MouseEvent} from 'react';
+import {Button} from "@material-tailwind/react";
 
 // Update the interface to include proper onClick typing
 interface MaterialButtonProps {

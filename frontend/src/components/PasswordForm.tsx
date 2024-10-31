@@ -1,5 +1,5 @@
-import React, { useState, useCallback } from 'react';
-import { X } from 'lucide-react';
+import React, {useCallback, useState} from 'react';
+import {X} from 'lucide-react';
 import TextInput from "@/components/TextInput";
 import PasswordRequirements from './PasswordRequirements';
 import MaterialButton from "./MaterialButton";
