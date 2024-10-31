@@ -2,6 +2,9 @@ import React, { useState } from "react";
 import { useAuth } from '../UseAuth';
 import ErrorBoundary from './ErrorBoundary';
 import { X } from 'lucide-react';
+import TextInput from "@/components/TextInput.tsx";
+import { Select, Option, SelectProps } from "@material-tailwind/react";
+import MaterialButton from './MaterialButton';
 
 enum UserRole {
     ADMIN = "ADMIN",
@@ -55,13 +58,13 @@ const ErrorMessage: React.FC<{
     >
         <div className="flex justify-between items-start">
             <p className="text-red-700 text-left">{error}</p>
-            <button
+            <MaterialButton
                 onClick={onDismiss}
                 className="ml-4 text-red-400 hover:text-red-600 transition-colors focus:outline-none"
                 aria-label="Dismiss error"
             >
                 <X size={18} />
-            </button>
+            </MaterialButton>
         </div>
     </div>
 );
@@ -152,6 +155,12 @@ const Signup: React.FC = () => {
         }
     };
 
+    const handleRoleChange: SelectProps["onChange"] = (value) => {
+        if (value) {
+            handleFieldChange('role', value as UserRole);
+        }
+    };
+
     return (
         <ErrorBoundary>
             <div className="bg-white shadow-lg rounded-lg p-8 w-full max-w-md mx-auto">
@@ -166,54 +175,63 @@ const Signup: React.FC = () => {
                 )}
 
                 <form onSubmit={handleSubmit} className="space-y-6">
-                    <input
+                    <TextInput
                         type="text"
-                        placeholder="First Name"
+                        label="First Name"
                         value={formState.firstName}
                         onChange={(e) => handleFieldChange('firstName', e.target.value)}
                         required
-                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="mb-4"
                     />
-                    <input
+                    <TextInput
                         type="text"
-                        placeholder="Last Name"
+                        label="Last Name"
                         value={formState.lastName}
                         onChange={(e) => handleFieldChange('lastName', e.target.value)}
                         required
-                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="mb-4"
                     />
-                    <input
+                    <TextInput
                         type="text"
-                        placeholder="Username"
+                        label="Username"
                         value={formState.username}
                         onChange={(e) => handleFieldChange('username', e.target.value)}
                         required
-                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="mb-4"
                     />
-                    <input
+                    <TextInput
                         type="email"
-                        placeholder="Email"
+                        label="Email"
                         value={formState.email}
                         onChange={(e) => handleFieldChange('email', e.target.value)}
                         required
-                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="mb-4"
                     />
-                    <select
+                    <Select
                         value={formState.role}
-                        onChange={(e) => handleFieldChange('role', e.target.value as UserRole)}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        onChange={handleRoleChange}
+                        label="Role"
+                        className="w-full"
+                        placeholder=" "
+                        onPointerEnterCapture={() => {
+                        }}
+                        onPointerLeaveCapture={() => {
+                        }}
                     >
-                        <option value={UserRole.USER}>User</option>
-                        <option value={UserRole.MODERATOR}>Moderator</option>
-                        <option value={UserRole.ADMIN}>Admin</option>
-                    </select>
-                    <button
+                        <Option value={UserRole.USER}>User</Option>
+                        <Option value={UserRole.MODERATOR}>Moderator</Option>
+                        <Option value={UserRole.ADMIN}>Admin</Option>
+                    </Select>
+                    <MaterialButton
                         type="submit"
                         disabled={loading}
-                        className={`w-full py-2 text-white font-semibold rounded-md transition-colors ${loading ? "bg-blue-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"}`}
+                        color="blue"
+                        className="w-full py-2"
+                        fullWidth
+                        variant={loading ? "filled" : "gradient"}
                     >
                         {loading ? "Creating..." : "Create User"}
-                    </button>
+                    </MaterialButton>
                 </form>
             </div>
         </ErrorBoundary>
