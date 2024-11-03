@@ -1,8 +1,7 @@
-import React, {useCallback, useState} from 'react';
-import {X} from 'lucide-react';
-import TextInput from "@/components/TextInput";
+import React, { useCallback, useState } from 'react';
+import { X, Check, Copy } from 'lucide-react';
 import PasswordRequirements from './PasswordRequirements';
-import MaterialButton from "./MaterialButton";
+import { Button, Input } from "@material-tailwind/react";
 
 interface ValidationError {
     field: string;
@@ -15,6 +14,7 @@ interface PasswordFormProps {
     requireCurrentPassword?: boolean;
     onSuccess?: () => void;
     onLogout?: () => void;
+    onCancel?: () => void;
     title?: string;
 }
 
@@ -52,10 +52,9 @@ const validatePassword = (password: string): string[] => {
     return errors;
 };
 
-// Error Message Component
 const ErrorMessage: React.FC<{
     error: string;
-    onDismiss: (e: React.MouseEvent<HTMLButtonElement>) => void;  // Updated type
+    onDismiss: (e: React.MouseEvent<HTMLButtonElement>) => void;
     show: boolean;
 }> = ({ error, onDismiss, show }) => (
     <div
@@ -65,24 +64,28 @@ const ErrorMessage: React.FC<{
     >
         <div className="flex justify-between items-start">
             <p className="text-red-700 text-left">{error}</p>
-            <MaterialButton
+            <Button
                 onClick={onDismiss}
                 className="ml-4 text-red-400 hover:text-red-600 transition-colors focus:outline-none"
                 aria-label="Dismiss error"
                 variant="text"
+                placeholder=""
+                onPointerEnterCapture={() => {}}
+                onPointerLeaveCapture={() => {}}
             >
                 <X size={18} />
-            </MaterialButton>
+            </Button>
         </div>
     </div>
 );
 
-export const PasswordForm: React.FC<PasswordFormProps> = ({
+const PasswordForm: React.FC<PasswordFormProps> = ({
     userId = null,
     token = null,
     requireCurrentPassword = false,
     onSuccess = () => {},
     onLogout = () => {},
+    onCancel,
     title = "Update Password"
 }) => {
     const [currentPassword, setCurrentPassword] = useState('');
@@ -94,6 +97,7 @@ export const PasswordForm: React.FC<PasswordFormProps> = ({
     const [showSuccessMessage, setShowSuccessMessage] = useState(false);
     const [generatedPassword, setGeneratedPassword] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [copied, setCopied] = useState(false);
 
     const isFormValid = useCallback(() => {
         const complexityErrors = validatePassword(newPassword);
@@ -107,7 +111,19 @@ export const PasswordForm: React.FC<PasswordFormProps> = ({
                fieldsHaveValues;
     }, [newPassword, confirmPassword, currentPassword, requireCurrentPassword]);
 
-    const handleDismissError = (e: React.MouseEvent<HTMLButtonElement>) => {  // Updated type
+    const copyToClipboard = async () => {
+        if (generatedPassword) {
+            try {
+                await navigator.clipboard.writeText(generatedPassword);
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2000);
+            } catch (err) {
+                console.error('Failed to copy password:', err);
+            }
+        }
+    };
+
+    const handleDismissError = (e: React.MouseEvent<HTMLButtonElement>) => {
         e.preventDefault();
         e.stopPropagation();
 
@@ -164,12 +180,6 @@ export const PasswordForm: React.FC<PasswordFormProps> = ({
         }
     };
 
-    const handleNewPasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const newValue = e.target.value;
-        setNewPassword(newValue);
-    };
-
-
     const generateRandomPassword = async () => {
         try {
             const data = await apiRequest<{ generated_password: string }>(
@@ -216,7 +226,6 @@ export const PasswordForm: React.FC<PasswordFormProps> = ({
                 return;
             }
 
-            // Check password history
             const historyError = await validatePasswordHistory(newPassword);
             if (historyError) {
                 setError(historyError);
@@ -225,7 +234,6 @@ export const PasswordForm: React.FC<PasswordFormProps> = ({
                 return;
             }
 
-            // Base64 decode token if present
             let processedToken = token;
             try {
                 if (token) {
@@ -316,72 +324,149 @@ export const PasswordForm: React.FC<PasswordFormProps> = ({
                     {error && <ErrorMessage error={error} onDismiss={handleDismissError} show={showError} />}
 
                     {successMessage && (
-                        <div className={`bg-green-50 border-l-4 border-green-500 p-4 mb-4 transition-opacity duration-500 ${showSuccessMessage ? 'opacity-100' : 'opacity-0'}`}>
+                        <div className={`bg-green-50 border-l-4 border-green-500 p-4 mb-4 transition-opacity duration-500 ${
+                            showSuccessMessage ? 'opacity-100' : 'opacity-0'
+                        }`}>
                             <p className="text-green-700 text-left">{successMessage}</p>
                         </div>
                     )}
 
-                    {generatedPassword && (
-                        <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-4">
-                            <p className="text-blue-700 text-left">
-                                Generated Password: {generatedPassword}
-                            </p>
-                        </div>
-                    )}
-
                     {requireCurrentPassword && (
-                        <TextInput
+                        <Input
                             type="password"
                             label="Current Password"
                             value={currentPassword}
                             onChange={(e) => setCurrentPassword(e.target.value)}
                             required={requireCurrentPassword}
-                            className="mb-4"
+                            // className="!border !border-gray-300 bg-white text-gray-900 shadow-lg shadow-gray-900/5 ring-4 ring-transparent placeholder:text-gray-500 focus:!border-gray-900 focus:!border-t-gray-900 focus:ring-gray-900/10"
+                            labelProps={{
+                                className: "text-gray-700",
+                            }}
+                            containerProps={{ className: "min-w-[100px]" }}
+                            crossOrigin={undefined}
+                            placeholder=""
+                            onPointerEnterCapture={() => {}}
+                            onPointerLeaveCapture={() => {}}
+
                         />
                     )}
 
-                    <TextInput
+                    <Input
                         type="password"
                         label="New Password"
                         value={newPassword}
-                        onChange={handleNewPasswordChange}
+                        onChange={(e) => setNewPassword(e.target.value)}
                         required
-                        className="mb-4"
+                        // className="!border !border-gray-300 bg-white text-gray-900 shadow-lg shadow-gray-900/5 ring-4 ring-transparent placeholder:text-gray-500 focus:!border-gray-900 focus:!border-t-gray-900 focus:ring-gray-900/10"
+                        labelProps={{
+                            className: "text-gray-700",
+                        }}
+                        containerProps={{ className: "min-w-[100px]" }}
+                        crossOrigin={undefined}
+                        placeholder=""
+                        onPointerEnterCapture={() => {}}
+                        onPointerLeaveCapture={() => {}}
                     />
                     <PasswordRequirements password={newPassword} />
 
-                    <TextInput
+                    <Input
                         type="password"
                         label="Confirm New Password"
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}
                         required
-                        className="mb-4"
+                        // className="!border !border-gray-300 bg-white text-gray-900 shadow-lg shadow-gray-900/5 ring-4 ring-transparent placeholder:text-gray-500 focus:!border-gray-900 focus:!border-t-gray-900 focus:ring-gray-900/10"
+                        labelProps={{
+                            className: "text-gray-700",
+                        }}
+                        containerProps={{ className: "min-w-[100px]" }}
+                        crossOrigin={undefined}
+                        placeholder=""
+                        onPointerEnterCapture={() => {}}
+                        onPointerLeaveCapture={() => {}}
                     />
 
-                    <div className="space-y-4">
-                        <MaterialButton
+                    <div className="flex flex-col sm:flex-row gap-4">
+                        <Button
                             type="submit"
                             disabled={!isFormValid() || isSubmitting}
                             color="blue"
-                            className="w-full py-2"
+                            className="flex-1"
                             fullWidth
+                            ripple={false}
                             variant={isSubmitting ? "filled" : "gradient"}
+                            placeholder=""
+                            onPointerEnterCapture={() => {}}
+                            onPointerLeaveCapture={() => {}}
                         >
                             {isSubmitting ? 'Updating...' : 'Update Password'}
-                        </MaterialButton>
+                        </Button>
 
-                        <MaterialButton
-                            type="button"
-                            onClick={generateRandomPassword}
-                            disabled={isSubmitting}
-                            color="blue"
-                            variant="outlined"
-                            className="w-full py-2"
-                            fullWidth
-                        >
-                            Generate Random Password
-                        </MaterialButton>
+                        {onCancel && (
+                            <Button
+                                type="button"
+                                onClick={onCancel}
+                                color="gray"
+                                className="flex-1"
+                                variant="outlined"
+                                ripple={false}
+                                placeholder=""
+                                onPointerEnterCapture={() => {}}
+                                onPointerLeaveCapture={() => {}}
+                            >
+                                Cancel
+                            </Button>
+                        )}
+                    </div>
+
+                    <div className="w-full">
+                        <div className="mb-2 flex justify-between items-center">
+                            <label className="text-sm font-medium text-gray-900">Password Generator</label>
+                        </div>
+                        <div className="flex items-center">
+                            <Button
+                                type="button"
+                                onClick={generateRandomPassword}
+                                disabled={isSubmitting}
+                                variant="filled"
+                                placeholder=""
+                                onPointerEnterCapture={() => {}}
+                                onPointerLeaveCapture={() => {}}
+                                className="flex-shrink-0 z-10 inline-flex py-2 h-8 items-center px-4 text-xs font-bold text-center text-white bg-blue-700 border hover:bg-blue-800 border-blue-700 hover:border-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 rounded-none rounded-l-lg"
+                            >
+                                Generate & Fill
+                            </Button>
+                            <div className="relative w-full">
+                                <input
+                                    type="text"
+                                    value={generatedPassword}
+                                    className="py-2 h-8 bg-gray-50 border border-e-0 border-gray-300 text-gray-500 text-sm border-s-0 focus:ring-blue-500 focus:border-blue-500 block w-full px-3"
+                                    placeholder="Click to generate a password"
+                                    readOnly
+                                    disabled
+                                />
+                            </div>
+                            <Button
+                                type="button"
+                                onClick={copyToClipboard}
+                                disabled={!generatedPassword}
+                                variant="filled"
+                                ripple={true}
+                                placeholder=""
+                                onPointerEnterCapture={() => {}}
+                                onPointerLeaveCapture={() => {}}
+                                className="py-2 h-8 w-8 rounded-e-lg rounded-l-none flex-shrink-0 z-10 inline-flex items-center justify-center text-sm font-medium text-center text-white bg-blue-700 hover:bg-blue-800 disabled:opacity-75 disabled:hover:bg-blue-700 p-0"
+                                aria-label="Copy to clipboard"
+                            >
+                                <div className="w-4 h-4">
+                                    {copied ? (
+                                        <Check size={16} className="text-white" />
+                                    ) : (
+                                        <Copy size={16} className="text-white" />
+                                    )}
+                                </div>
+                            </Button>
+                        </div>
                     </div>
                 </form>
             </div>

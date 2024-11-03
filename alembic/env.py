@@ -1,3 +1,4 @@
+# alembic/env.py
 import os
 from logging.config import fileConfig
 from sqlalchemy import engine_from_config
@@ -8,29 +9,42 @@ from dotenv import load_dotenv
 # Add backend directory to Python path
 import sys
 from pathlib import Path
-backend_dir = str(Path(__file__).resolve().parent.parent / 'backend')
-sys.path.append(backend_dir)
+
+# Get the project root directory and add it to Python path
+project_root = Path(__file__).resolve().parent.parent
+backend_path = project_root / 'backend'
+sys.path.insert(0, str(project_root))
+sys.path.insert(0, str(backend_path))
 
 # Load environment variables
 load_dotenv()
 
-# Import your models module
-from models import Base
+MYSQL_HOST = os.getenv("MYSQL_HOST")
+MYSQL_PORT = os.getenv("MYSQL_PORT")
+MYSQL_USER = os.getenv("MYSQL_USER")
+MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD")
+MYSQL_DATABASE = os.getenv("MYSQL_DATABASE")
+
+# URL without database name
+BASE_URL = f"mysql+pymysql://{MYSQL_USER}:{MYSQL_PASSWORD}@{MYSQL_HOST}:{MYSQL_PORT}"
+# URL with database name
+SQLALCHEMY_DATABASE_URL = f"{BASE_URL}/{MYSQL_DATABASE}"
+
+# Import Base first
+from backend.database import Base
+
+# Clear any existing metadata
+Base.metadata.clear()
+
+# Import all models
+from backend.models import ServerPerformance  # noqa: F401
+from backend.models import User  # noqa: F401
 
 # this is the Alembic Config object
 config = context.config
 
 # Override sqlalchemy.url with environment variable
-def get_url():
-    user = os.getenv("MYSQL_USER", "root")
-    password = os.getenv("MYSQL_PASSWORD")
-    host = os.getenv("MYSQL_HOST", "localhost")
-    port = os.getenv("MYSQL_PORT", "3306")
-    db_name = os.getenv("MYSQL_DATABASE", "simple")
-    return f"mysql+pymysql://{user}:{password}@{host}:{port}/{db_name}"
-
-# Set sqlalchemy.url in the alembic.ini file
-config.set_main_option("sqlalchemy.url", get_url())
+config.set_main_option("sqlalchemy.url", SQLALCHEMY_DATABASE_URL)
 
 # Interpret the config file for Python logging
 if config.config_file_name is not None:
@@ -41,7 +55,7 @@ target_metadata = Base.metadata
 
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode."""
-    url = config.get_main_option("sqlalchemy.url")
+    url = SQLALCHEMY_DATABASE_URL
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -54,8 +68,11 @@ def run_migrations_offline() -> None:
 
 def run_migrations_online() -> None:
     """Run migrations in 'online' mode."""
+    configuration = config.get_section(config.config_ini_section, {})
+    configuration["sqlalchemy.url"] = SQLALCHEMY_DATABASE_URL
+
     connectable = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
+        configuration,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )
@@ -63,7 +80,9 @@ def run_migrations_online() -> None:
     with connectable.connect() as connection:
         context.configure(
             connection=connection,
-            target_metadata=target_metadata
+            target_metadata=target_metadata,
+            compare_type=True,
+            compare_server_default=True,
         )
 
         with context.begin_transaction():

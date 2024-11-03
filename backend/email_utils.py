@@ -2,10 +2,10 @@ import base64
 import logging
 import os
 import smtplib
+import urllib.parse
+from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from email.mime.image import MIMEImage
-import urllib.parse
 from typing import Optional
 
 

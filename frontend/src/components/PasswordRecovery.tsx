@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { PasswordRecoveryResult } from './PasswordRecoveryResult';
-import TextInput from './TextInput';
-import MaterialButton from './MaterialButton';
+import {Button, Input} from "@material-tailwind/react";
 
 export const PasswordRecovery: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -70,25 +69,32 @@ export const PasswordRecovery: React.FC = () => {
 
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
-            <TextInput
-              type="email"
-              label="Email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="mb-4"
-            />
+            <Input
+                type="email"
+                label="Email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="mb-4"
+                onPointerEnterCapture={() => {}}
+                onPointerLeaveCapture={() => {}}
+                crossOrigin={undefined}            />
           </div>
-          <MaterialButton
+          <Button
               type="submit"
               disabled={isLoading}
               color="blue"
               className="w-full py-2"
               fullWidth
               variant={isLoading ? "filled" : "gradient"}
+              placeholder=" "
+              onPointerEnterCapture={() => {
+              }}
+              onPointerLeaveCapture={() => {
+              }}
           >
               {isLoading ? 'Sending...' : 'Continue'}
-          </MaterialButton>
+          </Button>
           <div className="text-center mt-6">
             <a
               href="/"

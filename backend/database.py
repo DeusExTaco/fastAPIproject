@@ -1,12 +1,12 @@
 import os
-import bcrypt
 from datetime import datetime, UTC
 
+import bcrypt
 import pymysql
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, MetaData, Column, String, DateTime, inspect
-from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
 
 load_dotenv()
 
@@ -53,7 +53,7 @@ def get_all_model_tables():
 
 def create_initial_admin_user(session):
     # Import here to avoid circular imports
-    from models import User, UserStatus, UserRole
+    from models.user import User, UserStatus, UserRole
 
     try:
         # Check if admin user already exists
@@ -151,9 +151,11 @@ def check_tables_exist():
 # Check database existence first
 is_new_database = check_database_exists()
 
-# Then create engine with the database URL
+# Create engine with the database URL
 engine = create_engine(SQLALCHEMY_DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+__all__ = ['Base', 'engine', 'SessionLocal', 'get_db', 'init_db']
 
 
 def get_db():

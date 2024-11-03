@@ -1,13 +1,12 @@
 import React, {ChangeEvent, FormEvent, useEffect, useState} from 'react';
-import {useAuth} from '../UseAuth';
 import {Option, Select} from "@material-tailwind/react";
-import MaterialButton from './MaterialButton';
-import TextInput from "@/components/TextInput";
+import {Button, Input} from "@material-tailwind/react";
 
 interface EditUserProps {
     userId: number;
     onClose: () => void;
-    onUserUpdated: () => void;
+    onSuccess: () => void;  // Changed to match Signup pattern
+    token: string | null;
 }
 
 type UserStatus = 'ACTIVE' | 'INACTIVE' | 'PENDING';
@@ -36,15 +35,14 @@ interface ApiResponse {
     first_name: string;
     last_name: string;
     email: string;
-    roles: Role[] | string;  // This defines that roles can be either Role[] or string
+    roles: Role[] | string;
     status: UserStatus | { value: UserStatus };
     user_name: string;
 }
 
 const AVAILABLE_ROLES: Role[] = ['ADMIN', 'USER', 'MODERATOR'];
 
-const EditUser: React.FC<EditUserProps> = ({ userId, onClose, onUserUpdated }) => {
-    const { token } = useAuth();
+export const EditUser: React.FC<EditUserProps> = ({ userId, onClose, onSuccess, token }) => {
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
     const [roleError, setRoleError] = useState<string | null>(null);
@@ -57,9 +55,7 @@ const EditUser: React.FC<EditUserProps> = ({ userId, onClose, onUserUpdated }) =
         user_name: ''
     });
 
-    // Keep track of the original data to optimize cancellation
     const [originalData, setOriginalData] = useState<UserData | null>(null);
-
 
     useEffect(() => {
         let isMounted = true;
@@ -117,7 +113,7 @@ const EditUser: React.FC<EditUserProps> = ({ userId, onClose, onUserUpdated }) =
 
                 if (isMounted) {
                     setUserData(newUserData);
-                    setOriginalData(newUserData); // Store original data
+                    setOriginalData(newUserData);
                     setLoading(false);
                 }
             } catch (err) {
@@ -129,13 +125,7 @@ const EditUser: React.FC<EditUserProps> = ({ userId, onClose, onUserUpdated }) =
             }
         };
 
-        void (async () => {
-            try {
-                await fetchUserData();
-            } catch (err) {
-                console.error('Error loading data:', err);
-            }
-        })();
+        void fetchUserData();
 
         return () => {
             isMounted = false;
@@ -143,7 +133,6 @@ const EditUser: React.FC<EditUserProps> = ({ userId, onClose, onUserUpdated }) =
     }, [userId, token]);
 
     const handleCancel = React.useCallback(() => {
-        // If we have original data, reset to it
         if (originalData) {
             setUserData(originalData);
             setError(null);
@@ -169,13 +158,13 @@ const EditUser: React.FC<EditUserProps> = ({ userId, onClose, onUserUpdated }) =
 
         try {
             const updateData: UpdateUserData = {
+                first_name: userData.first_name,
+                last_name: userData.last_name,
+                email: userData.email,
                 roles: Array.from(userData.roles),
-                status: userData.status
+                status: userData.status,
+                user_name: userData.user_name
             };
-
-            if (userData.first_name) updateData.first_name = userData.first_name;
-            if (userData.last_name) updateData.last_name = userData.last_name;
-            if (userData.email) updateData.email = userData.email;
 
             const response = await fetch(`http://localhost:8000/api/users/${userId}`, {
                 method: 'PUT',
@@ -193,8 +182,11 @@ const EditUser: React.FC<EditUserProps> = ({ userId, onClose, onUserUpdated }) =
                 return;
             }
 
-            onUserUpdated();
-            onClose();
+            if (response.ok && responseData) {
+                // Call onSuccess only after confirming the save was successful
+                onSuccess();
+                onClose();
+            }
         } catch (err) {
             console.error('Error updating user:', err);
             setError('Error updating user. Please try again.');
@@ -219,7 +211,6 @@ const EditUser: React.FC<EditUserProps> = ({ userId, onClose, onUserUpdated }) =
             }));
         }
     };
-
 
     const handleRoleToggle = (role: Role): void => {
         setRoleError(null);
@@ -256,50 +247,66 @@ const EditUser: React.FC<EditUserProps> = ({ userId, onClose, onUserUpdated }) =
             <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                     <div>
-                        <TextInput
+                        <Input
+                            name="user_name"
                             type="text"
                             label="Username"
                             value={userData.user_name}
                             onChange={handleInputChange}
                             disabled
+                            onPointerEnterCapture={() => {}}
+                            onPointerLeaveCapture={() => {}}
+                            crossOrigin={undefined}
                         />
                     </div>
                     <div>
-                        <TextInput
+                        <Input
+                            name="email"
                             type="email"
                             label="Email"
                             value={userData.email}
                             onChange={handleInputChange}
+                            onPointerEnterCapture={() => {}}
+                            onPointerLeaveCapture={() => {}}
+                            crossOrigin={undefined}
                         />
                     </div>
                     <div>
-                        <TextInput
+                        <Input
+                            name="first_name"
                             type="text"
                             label="First Name"
                             value={userData.first_name}
                             onChange={handleInputChange}
+                            onPointerEnterCapture={() => {}}
+                            onPointerLeaveCapture={() => {}}
+                            crossOrigin={undefined}
                         />
                     </div>
                     <div>
-                        <TextInput
+                        <Input
+                            name="last_name"
                             type="text"
                             label="Last Name"
                             value={userData.last_name}
                             onChange={handleInputChange}
+                            onPointerEnterCapture={() => {}}
+                            onPointerLeaveCapture={() => {}}
+                            crossOrigin={undefined}
                         />
                     </div>
                     <div className="flex items-start space-x-4 mb-4">
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Roles</label>
                             {AVAILABLE_ROLES.map((role) => (
-                                <div key={role} className="flex items-center mb-1"> {/* Small margin for control */}
+                                <div key={role} className="flex items-center mb-1">
                                     <input
                                         type="checkbox"
                                         id={`role-${role}`}
                                         checked={userData.roles.has(role)}
                                         onChange={() => handleRoleToggle(role)}
                                         className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                                        style={{marginBottom: '0px'}} // Inline style for further control
+                                        style={{marginBottom: '0px'}}
                                     />
                                     <label
                                         htmlFor={`role-${role}`}
@@ -321,10 +328,8 @@ const EditUser: React.FC<EditUserProps> = ({ userId, onClose, onUserUpdated }) =
                                 label="Status"
                                 className="w-full text-sm"
                                 placeholder=" "
-                                onPointerEnterCapture={() => {
-                                }}
-                                onPointerLeaveCapture={() => {
-                                }}
+                                onPointerEnterCapture={() => {}}
+                                onPointerLeaveCapture={() => {}}
                                 lockScroll={true}
                                 selected={(element) =>
                                     element &&
@@ -340,47 +345,39 @@ const EditUser: React.FC<EditUserProps> = ({ userId, onClose, onUserUpdated }) =
                                     className: "[&>span]:list-none"
                                 }}
                             >
-                                <Option
-                                    value="ACTIVE"
-                                    className="bg-white list-none"
-                                >
-                                    Active
-                                </Option>
-                                <Option
-                                    value="INACTIVE"
-                                    className="bg-white list-none"
-                                >
-                                    Inactive
-                                </Option>
-                                <Option
-                                    value="PENDING"
-                                    className="bg-white list-none"
-                                >
-                                    Pending
-                                </Option>
+                                <Option value="ACTIVE" className="bg-white list-none">Active</Option>
+                                <Option value="INACTIVE" className="bg-white list-none">Inactive</Option>
+                                <Option value="PENDING" className="bg-white list-none">Pending</Option>
                             </Select>
                         </div>
                     </div>
                 </div>
 
                 <div className="flex justify-end space-x-3 mt-6">
-                    <MaterialButton
+                    <Button
                         type="button"
                         onClick={handleCancel}
                         color="blue"
                         variant="outlined"
+                        ripple={false}
+                        placeholder=""
+                        onPointerEnterCapture={() => {}}
+                        onPointerLeaveCapture={() => {}}
                         className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
                     >
                         Cancel
-                    </MaterialButton>
-                    <MaterialButton
+                    </Button>
+                    <Button
                         type="submit"
                         color="blue"
-                        variant="outlined"
+                        ripple={false}
+                        placeholder=""
+                        onPointerEnterCapture={() => {}}
+                        onPointerLeaveCapture={() => {}}
                         className="px-4 py-2 bg-blue-600 border border-transparent rounded-md text-sm font-medium text-white hover:bg-blue-700"
                     >
                         Save Changes
-                    </MaterialButton>
+                    </Button>
                 </div>
             </form>
         </div>

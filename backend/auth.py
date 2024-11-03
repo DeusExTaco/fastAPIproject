@@ -1,6 +1,7 @@
+import logging
 import os
-from typing import Optional
 from datetime import datetime, timedelta, UTC
+from typing import Optional
 
 import jwt
 from cryptography.hazmat.backends import default_backend
@@ -13,8 +14,7 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from models import User
-from schema import TokenData
-import logging
+from schemas import TokenData
 
 # Load environment variables
 load_dotenv()

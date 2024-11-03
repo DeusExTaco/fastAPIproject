@@ -1,10 +1,12 @@
-# services/user_service.py
+
 import logging
-from typing import Optional, Dict, Any, List
-from datetime import datetime, timedelta, UTC
 import secrets
+from datetime import datetime, timedelta, UTC
+from typing import Optional, Dict, Any, List
+
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
+
 from models import User, UserRole
 from services.password_service import PasswordService
 

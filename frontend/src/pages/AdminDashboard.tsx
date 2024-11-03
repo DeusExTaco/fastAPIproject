@@ -1,11 +1,26 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import ChangePassword from '../components/ChangePassword';
-import Signup from '../components/Signup';
 import { useAuth } from '../UseAuth';
-import EditUser from '../components/EditUser';
+import UsersTable from '../components/UsersTable';
+import ErrorBoundary from '../components/ErrorBoundary';
+import DashboardOverview from '../components/DashboardOverview';
+import SettingsPage from '../components/Settings';
+// import ResetPasswordModal from '../components/ResetPassword';
+import ChangePasswordModal from '../components/ChangePasswordModal';
 
-console.log("AdminDashboard file loaded");
+import {
+  Users,
+  Settings as SettingsIcon,
+  Lock,
+  UserPlus,
+  Menu,
+  ChevronLeft,
+  LayoutDashboard,
+  Bell,
+  LogOut,
+  User,
+  ChevronDown
+} from 'lucide-react';
 
 interface User {
   id: number;
@@ -31,41 +46,61 @@ interface AdminDashboardProps {
 }
 
 function AdminDashboard({ user }: Readonly<AdminDashboardProps>) {
-  console.log("AdminDashboard rendering", {user});
   const navigate = useNavigate();
   const {logout, token} = useAuth();
   const [users, setUsers] = useState<DetailedUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [sortField, setSortField] = useState<keyof DetailedUser>('user_name');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
-  const [editingUserId, setEditingUserId] = useState<number | null>(null);
+  const [isNavExpanded, setIsNavExpanded] = useState(true);
+  const [activeComponent, setActiveComponent] = useState<string>('dashboard');
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
 
-  const isUserAdmin = user.roles.some(role =>
-      role.toLowerCase() === 'admin'
-  );
+  const handlePasswordModalOpen = () => {
+    setIsPasswordModalOpen(true);
+    setIsDropdownOpen(false); // Close dropdown if opened from there
+  };
+
+  const handlePasswordModalClose = () => {
+    setIsPasswordModalOpen(false);
+  };
 
   const handleAuthError = useCallback(() => {
     logout();
     navigate('/login');
   }, [logout, navigate]);
 
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const dropdown = document.getElementById('user-dropdown');
+      const trigger = document.getElementById('dropdown-trigger');
+      if (
+          dropdown &&
+          trigger &&
+          !dropdown.contains(event.target as Node) &&
+          !trigger.contains(event.target as Node)
+      ) {
+        setIsDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   const fetchUsers = useCallback(async () => {
+    if (!token) {
+      setError('No authentication token available');
+      handleAuthError();
+      return;
+    }
+
     try {
-      if (!users.length) {
-        setLoading(true);
-      }
+      setLoading(true);
       setError(null);
+      console.log('Fetching users...'); // Debug log
 
-      if (!token) {
-        setError('No authentication token available');
-        handleAuthError();
-        return;
-      }
-
-      console.log('Fetching users');
       const response = await fetch('http://localhost:8000/api/users/', {
         method: 'GET',
         headers: {
@@ -76,6 +111,7 @@ function AdminDashboard({ user }: Readonly<AdminDashboardProps>) {
       });
 
       const data = await response.json();
+      console.log('Received users data:', data); // Debug log
 
       if (!response.ok) {
         if (response.status === 403) {
@@ -84,124 +120,46 @@ function AdminDashboard({ user }: Readonly<AdminDashboardProps>) {
           setError('Authentication failed. Please log in again.');
           handleAuthError();
         } else {
-          setError(data.detail || 'Failed to fetch users');
+          setError(data.detail ?? 'Failed to fetch users');
         }
         return;
       }
 
-      console.log('Fetched users successfully:', {
-        count: data.length,
-        sampleUser: data[0] ? {
-          id: data[0].id,
-          username: data[0].user_name,
-          roles: data[0].roles
-        } : null
-      });
-
       setUsers(data);
     } catch (err) {
       console.error('Error fetching users:', err);
-      let errorMessage = 'Failed to fetch users';
-
-      if (err instanceof Error) {
-        errorMessage = err.message;
-      }
-      setError(errorMessage);
+      setError(err instanceof Error ? err.message : 'Failed to fetch users');
     } finally {
       setLoading(false);
-      setIsRefreshing(false);
     }
-  }, [token, users.length, handleAuthError]);
+  }, [token, handleAuthError]);
+
+  // Fetch users when component mounts and when token changes
+  useEffect(() => {
+    void fetchUsers();
+  }, [fetchUsers]);
 
   useEffect(() => {
-    console.log("AdminDashboard mounted", {
-      username: user.username,
-      roles: user.roles
-    });
-    if (isUserAdmin) {
+    if (activeComponent === 'users') {
       void fetchUsers();
     }
-  }, [user, refreshTrigger, token, isUserAdmin, fetchUsers]);
+  }, [activeComponent, fetchUsers]);
 
   const refreshUserList = () => {
     setIsRefreshing(true);
     setRefreshTrigger(prev => prev + 1);
   };
 
-  const handleSort = (field: keyof DetailedUser) => {
-    if (sortField === field) {
-      setSortDirection(current => current === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortDirection('asc');
-    }
+  const handleDeleteUser = (userId: number) => {
+    setUsers(users.filter(u => u.id !== userId));
   };
 
-  const sortedUsers = [...users].sort((a, b) => {
-    let aValue = a[sortField];
-    let bValue = b[sortField];
-
-    if (aValue === null || aValue === undefined) return sortDirection === 'asc' ? -1 : 1;
-    if (bValue === null || bValue === undefined) return sortDirection === 'asc' ? 1 : -1;
-
-    if (typeof aValue === 'string') {
-      aValue = aValue.toLowerCase();
-      bValue = (bValue as string).toLowerCase();
-    }
-
-    if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
-    if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
-    return 0;
-  });
-
-  const handleDeleteUser = async (userId: number, userName: string) => {
-    if (!window.confirm(`Are you sure you want to delete user ${userName}?`)) {
-      return;
-    }
-
-    try {
-      const response = await fetch(`http://localhost:8000/api/users/${userId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        if (response.status === 403) {
-          setError('You do not have permission to delete users');
-          return;
-        } else if (response.status === 401) {
-          setError('Authentication failed. Please log in again.');
-          handleAuthError();
-          return;
-        }
-        setError(errorData.detail || 'Failed to delete user');
-        return;
-      }
-
-      setUsers(users.filter(u => u.id !== userId));
-      console.log(`User ${userName} deleted successfully`);
-    } catch (err) {
-      console.error('Error deleting user:', err);
-      let errorMessage = 'Failed to delete user';
-
-      if (err instanceof Error) {
-        errorMessage = err.message;
-      }
-      setError(errorMessage);
-    }
-  };
-
-  const handleEditUser = (userId: number) => {
-    setEditingUserId(userId);
-  };
 
   const handleUserUpdated = () => {
-    setEditingUserId(null);
-    refreshUserList();
+    setIsRefreshing(true);
+    void fetchUsers().finally(() => {
+      setIsRefreshing(false);
+    });
   };
 
   const handleLogout = () => {
@@ -213,281 +171,242 @@ function AdminDashboard({ user }: Readonly<AdminDashboardProps>) {
     console.log('Password changed successfully');
   };
 
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
+  const menuItems = [
+    {id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard'},
+    {id: 'users', icon: Users, label: 'Users'},
+    // {
+    //   id: 'reset-password',
+    //   icon: Lock,
+    //   label: 'Change Password',
+    //   onClick: handlePasswordModalOpen
+    // },
+    // {id: 'create-user', icon: UserPlus, label: 'Create User'},
+    {id: 'notifications', icon: Bell, label: 'Notifications'},
+    {id: 'settings', icon: SettingsIcon, label: 'Settings'},
+  ];
 
-  const getBadgeClass = (roles: string | string[] | null) => {
-    if (!roles) return 'bg-gray-100 text-gray-800';
+  const renderNavItems = () => (
+      <nav className="mt-4">
+        {menuItems.map((item) => (
+            <button
+                key={item.id}
+                onClick={() => {
+                  if (item.onClick) {
+                    item.onClick();
+                  } else {
+                    setActiveComponent(item.id);
+                  }
+                }}
+                className={`w-full flex items-center p-4 hover:bg-gray-100 transition-colors ${
+                    activeComponent === item.id ? 'bg-gray-100 text-blue-600' : 'text-gray-700'
+                }`}
+            >
+              <item.icon size={24} className="min-w-[24px]"/>
+              {isNavExpanded && (
+                  <span className="ml-4 truncate">{item.label}</span>
+              )}
+            </button>
+        ))}
+      </nav>
+  );
 
-    const roleList = Array.isArray(roles)
-        ? roles.map(r => r.toLowerCase())
-        : roles.toLowerCase().split(',').map(r => r.trim());
+  const renderUserDropdown = () => (
+      <div className="py-1">
+        <button
+            onClick={() => {
+              setActiveComponent('settings');
+              setIsDropdownOpen(false);
+            }}
+            className="w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+        >
+          <SettingsIcon className="w-4 h-4 mr-2"/>
+          Settings
+        </button>
 
-    if (roleList.includes('admin')) return 'bg-red-100 text-red-800';
-    if (roleList.includes('moderator')) return 'bg-yellow-100 text-yellow-800';
-    return 'bg-green-100 text-green-800';
-};
+        <button
+            onClick={handlePasswordModalOpen}
+            className="w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+        >
+          <Lock className="w-4 h-4 mr-2"/>
+          Change Password
+        </button>
+      </div>
+  );
 
-  const getStatusBadgeClass = (status: string) => {
-    switch (status.toLowerCase()) {
-      case 'active':
-        return 'bg-green-100 text-green-800';
-      case 'inactive':
-        return 'bg-gray-100 text-gray-800';
-      case 'pending':
-        return 'bg-yellow-100 text-yellow-800';
+
+  const renderComponent = () => {
+    switch (activeComponent) {
+      case 'users':
+        return (
+            <div className="bg-white rounded-lg shadow">
+              <ErrorBoundary>
+                {loading ? (
+                    <div className="p-4 text-center">Loading users...</div>
+                ) : error ? (
+                    <div className="p-4 text-red-600">{error}</div>
+                ) : (
+                    <UsersTable
+                        users={users}
+                        currentUserId={user.id}
+                        isRefreshing={isRefreshing}
+                        token={token}
+                        onDeleteUser={handleDeleteUser}
+                        onAuthError={handleAuthError}
+                        setActiveComponent={setActiveComponent}
+                        onUserUpdated={handleUserUpdated}
+                    />
+                )}
+              </ErrorBoundary>
+            </div>
+        );
+      case 'settings':
+        return (
+            <div className="bg-gray-100">
+              <ErrorBoundary>
+                <SettingsPage/>
+              </ErrorBoundary>
+            </div>
+        );
+      case 'dashboard':
+        return <DashboardOverview/>;
       default:
-        return 'bg-gray-100 text-gray-800';
+        return <DashboardOverview/>;
     }
   };
 
-  const SortIcon = ({field}: { field: keyof DetailedUser }) => {
-    if (sortField !== field) return <span className="ml-1">↕</span>;
-    return <span className="ml-1">{sortDirection === 'asc' ? '↑' : '↓'}</span>;
-  };
-
-  if (!isUserAdmin) {
-    return (
-        <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-          <div className="bg-white p-8 rounded-lg shadow-lg">
-            <h2 className="text-2xl font-bold text-red-600 mb-4">Access Denied</h2>
-            <p className="text-gray-700">You do not have admin privileges to view this dashboard.</p>
-            <button
-                onClick={handleLogout}
-                className="mt-4 w-full bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded"
-            >
-              Logout
-            </button>
-          </div>
-        </div>
-    );
-  }
-
   return (
-      <div className="bg-gray-100 min-h-screen">
-        <div className="container mx-auto px-4 py-8">
-          <div className="bg-white shadow-lg rounded-lg p-8">
-            {/* Header Section */}
-            <h2 className="text-3xl font-bold text-gray-800 mb-4 text-center">Admin Dashboard</h2>
-            <p className="text-gray-700 mb-2 text-center">Welcome, {user.username}!</p>
-            <p className="text-gray-600 mb-4 text-center">User ID: {user.id}</p>
-            <p className="text-gray-600 mb-8 text-center">Roles: {user.roles.join(', ')}</p>
+      <>
+        <div className="flex h-screen bg-gray-100">
+          {/* Navigation Sidebar */}
+          <div className={`bg-white shadow-lg transition-all duration-300 ${
+              isNavExpanded ? 'w-64' : 'w-20'
+          }`}>
+            {/* Nav Header */}
+            <div className="flex items-center justify-between p-4 border-b">
+              {isNavExpanded && <span className="font-bold text-xl">Admin</span>}
+              <button
+                  onClick={() => setIsNavExpanded(!isNavExpanded)}
+                  className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+              >
+                {isNavExpanded ? <ChevronLeft size={24}/> : <Menu size={24}/>}
+              </button>
+            </div>
 
-            {/* Users Table Section */}
-            <div className="mb-8">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-semibold text-gray-800">User Management</h3>
-                <div className="flex items-center gap-2">
-                  {isRefreshing && (
-                      <div className="text-sm text-gray-500">Refreshing...</div>
-                  )}
+            {/* Nav Items */}
+            <nav className="mt-4">
+              {menuItems.map((item) => (
                   <button
-                      onClick={refreshUserList}
-                      disabled={loading || isRefreshing}
-                      className={`inline-flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200 ${
-                          (loading || isRefreshing) ? 'opacity-50 cursor-not-allowed' : ''
+                      key={item.id}
+                      onClick={() => {
+                        if (item.onClick) {
+                          item.onClick();
+                        } else {
+                          setActiveComponent(item.id);
+                        }
+                      }}
+                      className={`w-full flex items-center p-4 hover:bg-gray-100 transition-colors ${
+                          activeComponent === item.id ? 'bg-gray-100 text-blue-600' : 'text-gray-700'
                       }`}
                   >
-                    {isRefreshing ? (
-                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg"
-                             fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
-                                  strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor"
-                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                    ) : (
-                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-                        </svg>
+                    <item.icon size={24} className="min-w-[24px]"/>
+                    {isNavExpanded && (
+                        <span className="ml-4 truncate">{item.label}</span>
                     )}
-                    Refresh
                   </button>
+              ))}
+            </nav>
+          </div>
+
+          {/* Main Content Area */}
+          <div className="flex-1 overflow-auto">
+            {/* Header */}
+            <header className="bg-white shadow-sm px-6 py-4">
+              <div className="flex justify-between items-center">
+                <h1 className="text-2xl font-bold text-gray-800">
+                  {menuItems.find(item => item.id === activeComponent)?.label ?? 'Dashboard'}
+                </h1>
+
+                {/* User Dropdown */}
+                <div className="relative">
+                  <button
+                      id="dropdown-trigger"
+                      onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                      className="flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors focus:outline-none"
+                  >
+                    <div className="bg-blue-100 p-2 rounded-full">
+                      <User className="w-5 h-5 text-blue-600"/>
+                    </div>
+                    <span className="text-sm font-medium text-gray-700">{user.username}</span>
+                    <ChevronDown
+                        className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${
+                            isDropdownOpen ? 'rotate-180' : ''
+                        }`}
+                    />
+                  </button>
+
+                  {isDropdownOpen && (
+                      <div
+                          id="user-dropdown"
+                          className="absolute right-0 mt-2 w-56 rounded-lg bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-50"
+                      >
+                        <div className="px-4 py-3 border-b border-gray-100">
+                          <p className="text-sm font-medium text-gray-900">{user.username}</p>
+                          <p className="text-xs text-gray-500 mt-1">{user.roles.join(', ')}</p>
+                        </div>
+
+                        <div className="py-1">
+                          <button
+                              onClick={() => {
+                                setActiveComponent('settings');
+                                setIsDropdownOpen(false);
+                              }}
+                              className="w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                          >
+                            <SettingsIcon className="w-4 h-4 mr-2"/>
+                            Settings
+                          </button>
+
+                          <button
+                              onClick={() => {
+                                handlePasswordModalOpen();
+                                setIsDropdownOpen(false);
+                              }}
+                              className="w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                          >
+                            <Lock className="w-4 h-4 mr-2"/>
+                            Change Password
+                          </button>
+                        </div>
+
+                        <div className="py-1 border-t border-gray-100">
+                          <button
+                              onClick={handleLogout}
+                              className="w-full flex items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                          >
+                            <LogOut className="w-4 h-4 mr-2"/>
+                            Logout
+                          </button>
+                        </div>
+                      </div>
+                  )}
                 </div>
               </div>
+            </header>
 
-              {loading && !users.length ? (
-                  <div className="text-center py-4">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
-                    <p className="mt-2 text-gray-600">Loading users...</p>
-                  </div>
-              ) : error ? (
-                  <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4">
-                    <p className="text-red-700">{error}</p>
-                    <button
-                        onClick={refreshUserList}
-                        className="mt-2 text-red-600 hover:text-red-800 underline"
-                    >
-                      Try Again
-                    </button>
-                  </div>
-              ) : (
-                  <div
-                      className={`overflow-x-auto rounded-lg border border-gray-200 shadow-sm transition-opacity duration-200 ${
-                          isRefreshing ? 'opacity-50' : 'opacity-100'
-                      }`}>
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
-                      <tr>
-                        <th
-                            scope="col"
-                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                            onClick={() => handleSort('user_name')}
-                        >
-                          User <SortIcon field="user_name"/>
-                        </th>
-                        <th
-                            scope="col"
-                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                            onClick={() => handleSort('email')}
-                        >
-                          Email <SortIcon field="email"/>
-                        </th>
-                        <th
-                            scope="col"
-                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                            onClick={() => handleSort('roles')}
-                        >
-                          Role <SortIcon field="roles"/>
-                        </th>
-                        <th
-                            scope="col"
-                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                            onClick={() => handleSort('status')}
-                        >
-                          Status <SortIcon field="status"/>
-                        </th>
-                        <th
-                            scope="col"
-                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                            onClick={() => handleSort('created_at')}
-                        >
-                          Created <SortIcon field="created_at"/>
-                        </th>
-                        <th
-                            scope="col"
-                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                            onClick={() => handleSort('last_login')}
-                        >
-                          Last Login <SortIcon field="last_login"/>
-                        </th>
-                        <th
-                            scope="col"
-                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                        >
-                          Actions
-                        </th>
-                      </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                      {sortedUsers.map((tableUser) => (
-                          <tr key={tableUser.id} className="hover:bg-gray-50">
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="flex items-center">
-                                <div>
-                                  <div className="text-sm font-medium text-gray-900">
-                                    {tableUser.first_name} {tableUser.last_name}
-                                  </div>
-                                  <div className="text-sm text-gray-500">
-                                    {tableUser.user_name}
-                                  </div>
-                                </div>
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-gray-900">{tableUser.email}</div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getBadgeClass(tableUser.roles)}`}>
-                                  {Array.isArray(tableUser.roles)
-                                      ? tableUser.roles.join(', ').toUpperCase()
-                                      : String(tableUser.roles).toUpperCase()}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                          <span
-                              className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeClass(tableUser.status)}`}>
-                            {tableUser.status}
-                          </span>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {formatDate(tableUser.created_at)}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {formatDate(tableUser.last_login)}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                              <button
-                                  onClick={() => handleEditUser(tableUser.id)}
-                                  className="text-blue-600 hover:text-blue-900 mr-4"
-                                  title="Edit user"
-                              >
-                                Edit
-                              </button>
-                              <button
-                                  onClick={() => handleDeleteUser(tableUser.id, tableUser.user_name)}
-                                  className={`text-red-600 hover:text-red-900 ${tableUser.id === user.id ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                  disabled={tableUser.id === user.id}
-                                  title={tableUser.id === user.id ? "You cannot delete your own account" : "Delete user"}
-                              >
-                                Delete
-                              </button>
-                            </td>
-                          </tr>
-                      ))}
-                      </tbody>
-                    </table>
-                  </div>
-              )}
-            </div>
-
-            {/* Password Change Section */}
-            <div className="mb-8">
-              <h3 className="text-xl font-semibold text-gray-800 mb-4">Change Password</h3>
-              <ChangePassword userId={user.id} onPasswordChanged={handlePasswordChanged}/>
-            </div>
-
-            {/* Create User Section */}
-            <div className="mb-8">
-              <h3 className="text-xl font-semibold text-gray-800 mb-4">Create New User</h3>
-              <p className="text-gray-600 mb-4">Create new user accounts with specific roles and permissions.</p>
-              <Signup/>
-            </div>
-
-            {/* Logout Button */}
-            <button
-                onClick={handleLogout}
-                className="w-full bg-red-500 hover:bg-red-600 text-white font-semibold py-2 rounded-lg transition duration-200"
-            >
-              Logout
-            </button>
+            {/* Content Area */}
+            <main className="p-6">
+              {renderComponent()}
+            </main>
           </div>
         </div>
 
-        {/* Edit User Modal */}
-        {editingUserId && (
-            <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-              <div className="relative top-20 mx-auto p-5 w-full max-w-4xl">
-                <EditUser
-                    userId={editingUserId}
-                    onClose={() => setEditingUserId(null)}
-                    onUserUpdated={handleUserUpdated}
-                />
-              </div>
-            </div>
-        )}
-      </div>
+        {/* Password Reset Modal */}
+       <ChangePasswordModal
+          open={isPasswordModalOpen}
+          onClose={handlePasswordModalClose}
+          userId={user.id}
+        />
+      </>
   );
 }
-
-
 export default AdminDashboard;

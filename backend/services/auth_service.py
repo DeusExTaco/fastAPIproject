@@ -1,15 +1,16 @@
 
+import logging
+import secrets
 from typing import Dict, Any, List
+
+from fastapi import HTTPException, status
 from sqlalchemy import func, text
 from sqlalchemy.orm import Session
-from fastapi import HTTPException, status
-import secrets
-import logging
 
-from models import User, UserStatus, UserRole
+from auth import create_token
+from models.user import User, UserStatus, UserRole
 from services.password_service import PasswordService
 from services.user_service import UserService
-from auth import create_token
 
 
 class AuthService:

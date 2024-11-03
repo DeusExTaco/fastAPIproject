@@ -1,5 +1,6 @@
-from typing import Tuple
 import os
+from typing import Tuple
+
 from email_utils import encode_token
 
 

@@ -1,6 +1,7 @@
-# services/password_service.py
-import bcrypt
+
 from typing import List
+
+import bcrypt
 
 
 class PasswordService:

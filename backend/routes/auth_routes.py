@@ -1,23 +1,24 @@
-# routes/auth_routes.py
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, status
-from sqlalchemy import func, text
-from sqlalchemy.orm import Session
-import secrets
+
 import logging
+import secrets
 from typing import Optional
 
-from database import get_db
-from services.auth_service import AuthService
-from services.user_service import UserService
-from services.password_service import PasswordService
-from schema import UserLogin, PasswordRecoveryInitRequest, PasswordUpdateRequest
-from templates.email.password_reset_template import send_recovery_email
-from random_password import PasswordGenerator
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Response, status
+from sqlalchemy import func, text
+from sqlalchemy.orm import Session
 
-# Rest of the code remains the same...
+from database import get_db
+from random_password import PasswordGenerator
+from services.auth_service import AuthService
+from services.password_service import PasswordService
+from services.user_service import UserService
+from templates.email.password_reset_template import send_recovery_email
+from schemas.user import (
+    UserLogin, PasswordUpdateRequest,
+    PasswordRecoveryInitRequest, TokenData
+)
 
 router = APIRouter(tags=["authentication"])
-
 
 def get_user_or_404(db: Session, user_id: Optional[int] = None, email: Optional[str] = None,
                     reset_token: Optional[str] = None):
@@ -51,10 +52,30 @@ def create_reset_token(db: Session, user):
 
 
 @router.post("/login")
-def login(user_login: UserLogin, db: Session = Depends(get_db)):
-    logging.info(f"Login attempt - {user_login.username}")
-    return AuthService(db).login(user_login.username, user_login.password)
+async def login(user_login: UserLogin, response: Response, db: Session = Depends(get_db)):
+    try:
+        result = AuthService(db).login(user_login.username, user_login.password)
 
+        # Add CORS headers explicitly
+        response.headers["Access-Control-Allow-Origin"] = "http://localhost:5173"
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+
+        return result
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(e)
+        )
+
+
+@router.options("/login")
+async def login_options():
+    response = Response()
+    response.headers["Access-Control-Allow-Origin"] = "http://localhost:5173"
+    response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, Accept"
+    response.headers["Access-Control-Allow-Credentials"] = "true"
+    return response
 
 @router.post("/password-recovery")
 async def password_recovery(

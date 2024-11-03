@@ -39,17 +39,32 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
     });
   }
 
+  handleRetry = () => {
+    // Reset the error state to trigger a re-render
+    this.setState({
+      hasError: false,
+      error: null,
+      errorInfo: null
+    });
+  };
+
   render() {
     if (this.state.hasError) {
-      // You can render any custom fallback UI
+      // Enhanced error UI with retry button
       return (
         <div className="p-4 bg-red-50 border border-red-200 rounded-md">
           <h1 className="text-xl font-semibold text-red-700 mb-2">
             Something went wrong
           </h1>
-          <div className="text-red-600">
+          <div className="text-red-600 mb-4">
             {this.state.error?.message}
           </div>
+          <button
+            onClick={this.handleRetry}
+            className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+          >
+            Retry
+          </button>
           {process.env.NODE_ENV === 'development' && (
             <details className="mt-4">
               <summary className="text-sm text-gray-700 cursor-pointer">

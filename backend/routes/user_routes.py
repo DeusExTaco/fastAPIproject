@@ -1,14 +1,20 @@
-# routes/user_routes.py
+
 import logging
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, status
 from typing import List
+
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, status
 from sqlalchemy.orm import Session
+
+from auth import get_current_user, check_admin
 from database import get_db
 from services.user_service import UserService
-from auth import get_current_user, check_admin
-from models import User
-from schema import UserCreate, UserResponse, UserUpdateRequest, UserListResponse
 from templates.email.welcome_template import send_welcome_email
+from models.user import User
+from schemas.user import (
+    UserCreate, UserResponse, UserUpdateRequest,
+    UserListResponse
+)
+
 
 router = APIRouter(tags=["users"])
 

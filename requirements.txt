@@ -14,3 +14,4 @@ starlette~=0.40.0
 passlib~=1.7.4
 alembic~=1.13.3
 pydantic-settings~=2.6.0
+psutil~=6.1.0

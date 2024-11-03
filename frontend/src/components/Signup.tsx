@@ -1,10 +1,13 @@
-import React, {useState} from "react";
-import {useAuth} from '../UseAuth';
+import React, { useState } from "react";
+import { useAuth } from '../UseAuth';
 import ErrorBoundary from './ErrorBoundary';
-import {X} from 'lucide-react';
-import TextInput from "@/components/TextInput.tsx";
-import {Option, Select, SelectProps} from "@material-tailwind/react";
-import MaterialButton from './MaterialButton';
+import { X } from 'lucide-react';
+import {Button, Input, Option, Select, SelectProps} from "@material-tailwind/react";
+
+interface SignupProps {
+  onSuccess?: () => void;
+  onCancel?: () => void;
+}
 
 enum UserRole {
     ADMIN = "ADMIN",
@@ -58,18 +61,23 @@ const ErrorMessage: React.FC<{
     >
         <div className="flex justify-between items-start">
             <p className="text-red-700 text-left">{error}</p>
-            <MaterialButton
+            <Button
                 onClick={onDismiss}
+                placeholder=""
+                onPointerEnterCapture={() => {
+                }}
+                onPointerLeaveCapture={() => {
+                }}
                 className="ml-4 text-red-400 hover:text-red-600 transition-colors focus:outline-none"
                 aria-label="Dismiss error"
             >
                 <X size={18} />
-            </MaterialButton>
+            </Button>
         </div>
     </div>
 );
 
-const Signup: React.FC = () => {
+const Signup: React.FC<SignupProps> = ({ onSuccess, onCancel }) => {
     const { token } = useAuth();
     const [formState, setFormState] = useState({
         firstName: "",
@@ -122,7 +130,7 @@ const Signup: React.FC = () => {
                 status: "PENDING"
             };
 
-            await apiRequest('/users', {
+            const response = await fetch(`${API_BASE_URL}/users`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -131,11 +139,24 @@ const Signup: React.FC = () => {
                 body: JSON.stringify(userData),
             });
 
-            showSuccessWithDelay("User created successfully! A password reset email has been sent.");
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || "Failed to create user");
+            }
+
+            const responseData = await response.json();
+
+            if (responseData) {
+                showSuccessWithDelay("User created successfully! A password reset email has been sent.");
+                // Only return true if the user was actually created
+                return true;
+            }
+            return false;
         } catch (error) {
             console.error("Error in createUser:", error);
             setError(error instanceof Error ? error.message : "An unexpected error occurred");
             setShowError(true);
+            return false;
         }
     };
 
@@ -148,8 +169,13 @@ const Signup: React.FC = () => {
         setSuccessMessage(null);
 
         try {
-            await createUser();
-            setFormState({ firstName: "", lastName: "", username: "", email: "", role: UserRole.USER });
+            const success = await createUser();
+            if (success) {
+                setFormState({ firstName: "", lastName: "", username: "", email: "", role: UserRole.USER });
+                if (onSuccess) {
+                    onSuccess();
+                }
+            }
         } finally {
             setLoading(false);
         }
@@ -163,9 +189,7 @@ const Signup: React.FC = () => {
 
     return (
         <ErrorBoundary>
-            <div className="bg-white shadow-lg rounded-lg p-8 w-full max-w-md mx-auto">
-                <h2 className="text-2xl font-semibold text-gray-800 mb-6 text-center">Create New User</h2>
-
+            <div className="w-full max-w-md mx-auto">
                 {error && <ErrorMessage error={error} onDismiss={handleDismissError} show={showError} />}
 
                 {successMessage && (
@@ -175,39 +199,76 @@ const Signup: React.FC = () => {
                 )}
 
                 <form onSubmit={handleSubmit} className="space-y-6">
-                    <TextInput
-                        type="text"
-                        label="First Name"
-                        value={formState.firstName}
-                        onChange={(e) => handleFieldChange('firstName', e.target.value)}
-                        required
-                        className="mb-4"
-                    />
-                    <TextInput
-                        type="text"
-                        label="Last Name"
-                        value={formState.lastName}
-                        onChange={(e) => handleFieldChange('lastName', e.target.value)}
-                        required
-                        className="mb-4"
-                    />
-                    <TextInput
-                        type="text"
-                        label="Username"
-                        value={formState.username}
-                        onChange={(e) => handleFieldChange('username', e.target.value)}
-                        required
-                        className="mb-4"
-                    />
-                    <TextInput
-                        type="email"
-                        label="Email"
-                        value={formState.email}
-                        onChange={(e) => handleFieldChange('email', e.target.value)}
-                        required
-                        className="mb-4"
-                    />
-                     <Select
+                    <div>
+                        <Input
+                            type="text"
+                            label="First Name"
+                            value={formState.firstName}
+                            onChange={(e) => handleFieldChange('firstName', e.target.value)}
+                            required
+                            // className="!border !border-gray-300 bg-white text-gray-900 shadow-lg shadow-gray-900/5 ring-4 ring-transparent placeholder:text-gray-500 focus:!border-gray-900 focus:!border-t-gray-900 focus:ring-gray-900/10"
+                            labelProps={{
+                                className: "text-gray-700",
+                            }}
+                            containerProps={{className: "min-w-[100px]"}}
+                            crossOrigin={undefined}
+                            onPointerEnterCapture={() => {}}
+                            onPointerLeaveCapture={() => {}}
+                        />
+                    </div>
+                    <div>
+                        <Input
+                            type="text"
+                            label="Last Name"
+                            value={formState.lastName}
+                            onChange={(e) => handleFieldChange('lastName', e.target.value)}
+                            required
+                            // className="!border !border-gray-300 bg-white text-gray-900 shadow-lg shadow-gray-900/5 ring-4 ring-transparent placeholder:text-gray-500 focus:!border-gray-900 focus:!border-t-gray-900 focus:ring-gray-900/10"
+                            labelProps={{
+                                className: "text-gray-700",
+                            }}
+                            containerProps={{className: "min-w-[100px]"}}
+                            crossOrigin={undefined}
+                            onPointerEnterCapture={() => {}}
+                            onPointerLeaveCapture={() => {}}
+                        />
+                    </div>
+                    <div>
+                        <Input
+                            type="text"
+                            label="Username"
+                            value={formState.username}
+                            onChange={(e) => handleFieldChange('username', e.target.value)}
+                            required
+                            // className="!border !border-gray-300 bg-white text-gray-900 shadow-lg shadow-gray-900/5 ring-4 ring-transparent placeholder:text-gray-500 focus:!border-gray-900 focus:!border-t-gray-900 focus:ring-gray-900/10"
+                            labelProps={{
+                                className: "text-gray-700",
+                            }}
+                            containerProps={{className: "min-w-[100px]"}}
+                            crossOrigin={undefined}
+                            onPointerEnterCapture={() => {}}
+                            onPointerLeaveCapture={() => {}}
+                        />
+                    </div>
+                    <div>
+                        <Input
+                            type="email"
+                            label="Email"
+                            value={formState.email}
+                            onChange={(e) => handleFieldChange('email', e.target.value)}
+                            required
+                            // className="!border !border-gray-300 bg-white text-gray-900 shadow-lg shadow-gray-900/5 ring-4 ring-transparent placeholder:text-gray-500 focus:!border-gray-900 focus:!border-t-gray-900 focus:ring-gray-900/10"
+                            labelProps={{
+                                className: "text-gray-700",
+                            }}
+                            containerProps={{className: "min-w-[100px]"}}
+                            crossOrigin={undefined}
+                            onPointerEnterCapture={() => {}}
+                            onPointerLeaveCapture={() => {}}
+                        />
+                    </div>
+                    <div>
+                        <Select
                             value={formState.role}
                             onChange={handleRoleChange}
                             label="Role"
@@ -232,35 +293,51 @@ const Signup: React.FC = () => {
                                 className: "[&>span]:list-none"
                             }}
                         >
-                            <Option
-                                value={UserRole.USER}
-                                className="bg-white list-none"
-                            >
+                            <Option value={UserRole.USER} className="bg-white list-none">
                                 User
                             </Option>
-                            <Option
-                                value={UserRole.MODERATOR}
-                                className="bg-white list-none"
-                            >
+                            <Option value={UserRole.MODERATOR} className="bg-white list-none">
                                 Moderator
                             </Option>
-                            <Option
-                                value={UserRole.ADMIN}
-                                className="bg-white list-none"
-                            >
+                            <Option value={UserRole.ADMIN} className="bg-white list-none">
                                 Admin
                             </Option>
                         </Select>
-                    <MaterialButton
-                        type="submit"
-                        disabled={loading}
-                        color="blue"
-                        className="w-full py-2"
-                        fullWidth
-                        variant={loading ? "filled" : "gradient"}
-                    >
-                        {loading ? "Creating..." : "Create User"}
-                    </MaterialButton>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row gap-4 mt-6">
+                        <Button
+                            type="submit"
+                            disabled={loading}
+                            color="blue"
+                            className="flex-1"
+                            variant="gradient"
+                            size="lg"
+                            placeholder=""
+                            onPointerEnterCapture={() => {
+                            }}
+                            onPointerLeaveCapture={() => {
+                            }}
+                        >
+                            {loading ? "Creating..." : "Create User"}
+                        </Button>
+
+                        <Button
+                            type="button"
+                            onClick={onCancel}
+                            color="gray"
+                            className="flex-1"
+                            variant="outlined"
+                            size="lg"
+                            placeholder=""
+                            onPointerEnterCapture={() => {
+                            }}
+                            onPointerLeaveCapture={() => {
+                            }}
+                        >
+                            Cancel
+                        </Button>
+                    </div>
                 </form>
             </div>
         </ErrorBoundary>

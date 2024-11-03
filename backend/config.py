@@ -1,9 +1,9 @@
 # backend/config.py
-from pydantic_settings import BaseSettings
 from functools import lru_cache
 from typing import List
-import os
+
 from dotenv import load_dotenv
+from pydantic_settings import BaseSettings
 
 # Load .env file from project root
 load_dotenv(dotenv_path="../.env")

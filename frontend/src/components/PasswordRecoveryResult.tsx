@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import MaterialButton from './MaterialButton';
+import {Button} from "@material-tailwind/react";
 
 interface PasswordRecoveryResultProps {
   email: string;
@@ -61,7 +61,7 @@ export const PasswordRecoveryResult: React.FC<PasswordRecoveryResultProps> = ({ 
             </>
           )}
         </p>
-        <MaterialButton
+        <Button
               type="submit"
               disabled={isLoading}
               onClick={handleResendClick}
@@ -69,9 +69,14 @@ export const PasswordRecoveryResult: React.FC<PasswordRecoveryResultProps> = ({ 
               className="w-full py-2"
               fullWidth
               variant={isLoading ? "filled" : "gradient"}
+              placeholder=" "
+              onPointerEnterCapture={() => {
+              }}
+              onPointerLeaveCapture={() => {
+              }}
           >
                {isLoading ? 'Sending...' : 'Resend Email'}
-          </MaterialButton>
+          </Button>
         <div className="text-center mt-6">
           <a
             href="/"
