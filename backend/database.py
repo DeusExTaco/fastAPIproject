@@ -1,4 +1,6 @@
+# database.py
 import os
+import logging
 from datetime import datetime, UTC
 
 import bcrypt
@@ -7,6 +9,23 @@ from dotenv import load_dotenv
 from sqlalchemy import create_engine, MetaData, Column, String, DateTime, inspect
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+
+# Configure SQLAlchemy logging - must be done before any SQLAlchemy imports or operations
+for logger_name in [
+    'sqlalchemy.engine',
+    'sqlalchemy.orm',
+    'sqlalchemy.pool',
+    'sqlalchemy.dialects',
+    'sqlalchemy.orm.mapper',
+    'sqlalchemy.orm.relationships',
+    'sqlalchemy.orm.strategies',
+    'sqlalchemy.engine.base.Engine'
+]:
+    logging.getLogger(logger_name).setLevel(logging.WARNING)
+    # Prevent propagation to root logger to avoid duplicate logs
+    logging.getLogger(logger_name).propagate = False
+    # Remove any existing handlers
+    logging.getLogger(logger_name).handlers = []
 
 load_dotenv()
 
@@ -48,12 +67,17 @@ def table_exists(engine1, table_name):
 
 
 def get_all_model_tables():
+    # Import all models to ensure they're registered with Base.metadata
+    from models.user import User
+    from models.user_profile import UserProfile, UserAddress
+
     return Base.metadata.tables
 
 
 def create_initial_admin_user(session):
     # Import here to avoid circular imports
     from models.user import User, UserStatus, UserRole
+    from models.user_profile import UserProfile, UserAddress
 
     try:
         # Check if admin user already exists
@@ -80,8 +104,44 @@ def create_initial_admin_user(session):
         )
 
         session.add(admin_user)
+        session.flush()  # Flush to get the admin_user.id
+
+        # Create associated user profile
+        admin_profile = UserProfile(
+            user_id=admin_user.id,
+            date_of_birth=None,
+            gender="prefer_not_to_say",
+            phone=None,
+            avatar_url=None,
+            bio="System Administrator",
+            website=None,
+            social_media={},
+            notification_preferences={
+                "email": True,
+                "push": False,
+                "sms": False
+            },
+            privacy_settings={
+                "profile_visibility": "private",
+                "show_email": False,
+                "show_phone": False
+            }
+        )
+        session.add(admin_profile)
+
+        # Create default address
+        admin_address = UserAddress(
+            user_id=admin_user.id,
+            street=None,
+            city=None,
+            state=None,
+            country=None,
+            postal_code=None
+        )
+        session.add(admin_address)
+
         session.commit()
-        print("Initial admin user created successfully.")
+        print("Initial admin user created successfully with profile and address.")
         print(f"Default login: {INITIAL_USER}")
         print(f"Default password: {INITIAL_PASSWORD}")
     except Exception as e:
@@ -139,7 +199,9 @@ def check_tables_exist():
     missing_tables = []
     existing_tables = []
 
+    print("\nChecking tables in metadata:")
     for table_name in model_tables.keys():
+        print(f"Found table in metadata: {table_name}")
         if table_exists(engine, table_name):
             existing_tables.append(table_name)
         else:
@@ -152,8 +214,15 @@ def check_tables_exist():
 is_new_database = check_database_exists()
 
 # Create engine with the database URL
-engine = create_engine(SQLALCHEMY_DATABASE_URL)
+engine = create_engine(
+    SQLALCHEMY_DATABASE_URL,
+    echo=False  # Disable SQL echoing
+)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+# Import all models to ensure they're registered with Base.metadata
+from models.user import User  # noqa
+from models.user_profile import UserProfile, UserAddress  # noqa
 
 __all__ = ['Base', 'engine', 'SessionLocal', 'get_db', 'init_db']
 

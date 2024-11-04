@@ -109,6 +109,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onLogin }) => {
                   className: "text-gray-700",
                 }}
                 containerProps={{className: "min-w-[100px]"}}
+                placeholder={""}
                 onPointerEnterCapture={() => {}}
                 onPointerLeaveCapture={() => {}}
                 crossOrigin={undefined}            />

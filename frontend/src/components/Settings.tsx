@@ -16,12 +16,10 @@ import {
 } from 'lucide-react';
 import { Switch } from "@material-tailwind/react";
 import ChangePasswordModal from './ChangePasswordModal';
+import EditProfileDialog from './EditProfileDialog';
+import { useAuth } from '../UseAuth'; // Add this import
 
-const SettingsSection: React.FC<{
-  title: string;
-  description: string;
-  children: React.ReactNode;
-}> = ({ title, description, children }) => (
+const SettingsSection = ({ title, description, children }) => (
   <div className="border-b border-gray-200 pb-6 mb-6 last:border-0">
     <h3 className="text-lg font-semibold text-gray-900 mb-2">{title}</h3>
     <p className="text-sm text-gray-500 mb-4">{description}</p>
@@ -29,7 +27,9 @@ const SettingsSection: React.FC<{
   </div>
 );
 
+
 const SettingsPage = () => {
+  const { user, token } = useAuth(); // Get user and token from auth context
   const [settings, setSettings] = useState({
     darkMode: false,
     emailNotifications: true,
@@ -42,8 +42,9 @@ const SettingsPage = () => {
   });
 
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
-  const handleSettingChange = (setting: keyof typeof settings) => {
+  const handleSettingChange = (setting) => {
     setSettings(prev => ({
       ...prev,
       [setting]: !prev[setting]
@@ -56,6 +57,14 @@ const SettingsPage = () => {
 
   const handlePasswordModalClose = () => {
     setIsPasswordModalOpen(false);
+  };
+
+  const handleProfileModalOpen = () => {
+    setIsProfileModalOpen(true);
+  };
+
+  const handleProfileModalClose = () => {
+    setIsProfileModalOpen(false);
   };
 
   return (
@@ -204,7 +213,10 @@ const SettingsPage = () => {
       <div className="bg-white rounded-xl shadow-md p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <button className="flex items-center space-x-2 p-4 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors">
+          <button
+            onClick={handleProfileModalOpen}
+            className="flex items-center space-x-2 p-4 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+          >
             <UserCog className="w-5 h-5 text-blue-500" />
             <span className="text-sm font-medium text-blue-700">Update Profile</span>
           </button>
@@ -222,11 +234,18 @@ const SettingsPage = () => {
         </div>
       </div>
 
-      {/* Change Password Modal */}
+      {/* Modals */}
       <ChangePasswordModal
         open={isPasswordModalOpen}
         onClose={handlePasswordModalClose}
-        userId={0} // You'll need to pass the actual userId here from props or context
+        userId={user?.id}
+      />
+
+      <EditProfileDialog
+        open={isProfileModalOpen}
+        onClose={handleProfileModalClose}
+        userId={user?.id}
+        token={token}
       />
     </div>
   );

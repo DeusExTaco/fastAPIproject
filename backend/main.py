@@ -22,16 +22,45 @@ from workers.performance_worker import PerformanceMonitor
 from routes.auth_routes import router as auth_router
 from routes.user_routes import router as user_router
 from routes.performance_routes import router as performance_router
+from routes.user_profile_routes import router as profile_router
 
 # Get settings instance
 settings = get_settings()
 
-# Configure logging
+# Base logging configuration
 logging.basicConfig(
     level=getattr(logging, settings.LOG_LEVEL),
-    format=settings.LOG_FORMAT
+    format=settings.LOG_FORMAT,
+    force=True
 )
+
+# Configure SQLAlchemy logging - repeat here to ensure it's set before any DB operations
+for logger_name in [
+    'sqlalchemy.engine',
+    'sqlalchemy.orm',
+    'sqlalchemy.pool',
+    'sqlalchemy.dialects',
+    'sqlalchemy.orm.mapper',
+    'sqlalchemy.orm.relationships',
+    'sqlalchemy.orm.strategies',
+    'sqlalchemy.engine.base.Engine'
+]:
+    logging.getLogger(logger_name).setLevel(logging.WARNING)
+    logging.getLogger(logger_name).propagate = False
+    logging.getLogger(logger_name).handlers = []
+
+# Configure uvicorn access logs
+logging.getLogger("uvicorn.access").handlers = []
+logging.getLogger("uvicorn.access").propagate = True
+logging.getLogger("uvicorn.access").setLevel(logging.INFO)
+
+# Get root logger
+root_logger = logging.getLogger()
+root_logger.setLevel(getattr(logging, settings.LOG_LEVEL))
+
+# Application logger
 logger = logging.getLogger(__name__)
+
 
 # Initialize performance monitor
 performance_monitor = PerformanceMonitor(interval=60)
@@ -160,6 +189,11 @@ app.include_router(
     tags=["Performance Monitoring"]
 )
 
+app.include_router(
+    profile_router,
+    prefix="/api",
+    tags=["user-profile"]
+)
 
 @app.get("/api/health")
 async def health_check():

@@ -1,3 +1,4 @@
+// src/types/types.tsx
 export interface DetailedUser {
     id: number;
     first_name: string;

@@ -2,6 +2,7 @@ import enum
 
 from sqlalchemy import Column, Integer, String, Enum, DateTime, JSON
 from sqlalchemy.sql import func
+from sqlalchemy.orm import relationship
 
 from database import Base
 
@@ -37,6 +38,9 @@ class User(Base):
 
     # Store last 5 passwords as JSON
     last_passwords = Column(JSON, default=list)
+
+    profile = relationship("UserProfile", back_populates="user", uselist=False, cascade="all, delete-orphan")
+    addresses = relationship("UserAddress", back_populates="user", cascade="all, delete-orphan")
 
     def to_dict(self):
         """Convert user object to dictionary for API responses"""

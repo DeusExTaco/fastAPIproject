@@ -46,7 +46,7 @@ def _get_system_metrics():
         metrics["http_status"] = 200
         metrics["response_time"] = 0  # Base metric
 
-        logger.debug(f"Collected metrics: {metrics}")
+        # logger.debug(f"Collected metrics: {metrics}")
         return metrics
 
     except Exception as e:
@@ -133,14 +133,14 @@ class PerformanceMonitor:
                 db.add(performance_record)
                 db.commit()
 
-                logger.info(
-                    f"Successfully recorded metrics: CPU: {metrics['cpu_usage']}%, "
-                    f"Memory: {metrics['memory_usage']}%, "
-                    f"Disk: {metrics['disk_usage']}%, "
-                    f"Active Connections: {metrics['active_connections']}, "
-                    f"Authenticated: {metrics['authenticated_connections']}, "
-                    f"Anonymous: {metrics['anonymous_connections']}"
-                )
+                # logger .info(
+                #     f"Successfully recorded metrics: CPU: {metrics['cpu_usage']}%, "
+                #     f"Memory: {metrics['memory_usage']}%, "
+                #     f"Disk: {metrics['disk_usage']}%, "
+                #     f"Active Connections: {metrics['active_connections']}, "
+                #     f"Authenticated: {metrics['authenticated_connections']}, "
+                #     f"Anonymous: {metrics['anonymous_connections']}"
+                # )
 
             except SQLAlchemyError as e:
                 db.rollback()

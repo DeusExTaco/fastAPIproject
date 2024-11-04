@@ -1,5 +1,7 @@
 {
   "dependencies": {
-    "lucide-react": "^0.454.0"
+    "lucide-react": "^0.454.0",
+    "react-social-icons": "^6.18.0",
+    "styled-icons": "^10.47.1"
   }
 }
