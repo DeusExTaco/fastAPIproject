@@ -1,5 +1,5 @@
 # models/user_profile.py
-from sqlalchemy import Column, Integer, String, ForeignKey, Enum, JSON
+from sqlalchemy import Column, Integer, String, ForeignKey, JSON
 from sqlalchemy.orm import relationship
 from database import Base
 

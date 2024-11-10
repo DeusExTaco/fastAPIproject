@@ -66,10 +66,12 @@ def table_exists(engine1, table_name):
     return table_name in inspector.get_table_names()
 
 
+# noinspection PyUnresolvedReferences
 def get_all_model_tables():
     # Import all models to ensure they're registered with Base.metadata
     from models.user import User
     from models.user_profile import UserProfile, UserAddress
+    from models.user_preferences import UserPreferences
 
     return Base.metadata.tables
 
@@ -223,6 +225,7 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 # Import all models to ensure they're registered with Base.metadata
 from models.user import User  # noqa
 from models.user_profile import UserProfile, UserAddress  # noqa
+from models.user_preferences import UserPreferences # noqa
 
 __all__ = ['Base', 'engine', 'SessionLocal', 'get_db', 'init_db']
 

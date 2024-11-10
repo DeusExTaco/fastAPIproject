@@ -12,10 +12,12 @@ class UserStatus(enum.Enum):
     INACTIVE = "INACTIVE"
     PENDING = "PENDING"
 
+
 class UserRole(enum.Enum):
     ADMIN = "ADMIN"
     MODERATOR = "MODERATOR"
     USER = "USER"
+
 
 class User(Base):
     __tablename__ = "users"
@@ -39,8 +41,12 @@ class User(Base):
     # Store last 5 passwords as JSON
     last_passwords = Column(JSON, default=list)
 
+    # Existing relationships
     profile = relationship("UserProfile", back_populates="user", uselist=False, cascade="all, delete-orphan")
     addresses = relationship("UserAddress", back_populates="user", cascade="all, delete-orphan")
+
+    # Add new preferences relationship
+    preferences = relationship("UserPreferences", back_populates="user", uselist=False, cascade="all, delete-orphan")
 
     def to_dict(self):
         """Convert user object to dictionary for API responses"""

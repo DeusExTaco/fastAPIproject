@@ -23,6 +23,10 @@ from routes.auth_routes import router as auth_router
 from routes.user_routes import router as user_router
 from routes.performance_routes import router as performance_router
 from routes.user_profile_routes import router as profile_router
+from routes.user_preferences_routes import router as preferences_router
+
+
+ua = "uvicorn.access"
 
 # Get settings instance
 settings = get_settings()
@@ -50,9 +54,9 @@ for logger_name in [
     logging.getLogger(logger_name).handlers = []
 
 # Configure uvicorn access logs
-logging.getLogger("uvicorn.access").handlers = []
-logging.getLogger("uvicorn.access").propagate = True
-logging.getLogger("uvicorn.access").setLevel(logging.INFO)
+logging.getLogger(ua).handlers = []
+logging.getLogger(ua).propagate = True
+logging.getLogger(ua).setLevel(logging.INFO)
 
 # Get root logger
 root_logger = logging.getLogger()
@@ -66,8 +70,9 @@ logger = logging.getLogger(__name__)
 performance_monitor = PerformanceMonitor(interval=60)
 
 
+# noinspection PyUnusedLocal
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(fastapi_app: FastAPI):
     """
     Application lifespan manager handling startup and shutdown tasks
     Now includes enhanced connection tracking and performance monitoring
@@ -193,6 +198,12 @@ app.include_router(
     profile_router,
     prefix="/api",
     tags=["user-profile"]
+)
+
+app.include_router(
+    preferences_router,
+    prefix="/api",
+    tags=["user-preferences"]
 )
 
 @app.get("/api/health")

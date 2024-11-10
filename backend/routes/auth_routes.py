@@ -1,5 +1,4 @@
 
-import logging
 import secrets
 from typing import Optional
 
@@ -15,7 +14,7 @@ from services.user_service import UserService
 from templates.email.password_reset_template import send_recovery_email
 from schemas.user import (
     UserLogin, PasswordUpdateRequest,
-    PasswordRecoveryInitRequest, TokenData
+    PasswordRecoveryInitRequest
 )
 
 router = APIRouter(tags=["authentication"])
@@ -130,7 +129,7 @@ def generate_password(options: dict):
     try:
         return {
             "generated_password": PasswordGenerator().generate_password(
-                length=options.get("length", 12),
+                length=options.get("length", 16),
                 use_upper=options.get("use_upper", True),
                 use_lower=options.get("use_lower", True),
                 use_numbers=options.get("use_numbers", True),

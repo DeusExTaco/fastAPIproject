@@ -1,7 +1,7 @@
 # services/performance_service.py
 from datetime import datetime, timedelta, timezone
 from typing import List, Dict, Any
-from sqlalchemy import func, distinct, case, select
+from sqlalchemy import func, distinct, case
 from sqlalchemy.orm import Session
 from models.performance import ServerPerformance
 

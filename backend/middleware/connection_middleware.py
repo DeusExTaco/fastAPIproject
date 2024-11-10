@@ -30,11 +30,14 @@ async def track_connection(request: Request, rate_limit: int, rate_window: int, 
             source_ip=request.client.host,
             endpoint=request.url.path,
             limit=rate_limit,
-            window_seconds=rate_window
+            window=rate_window  # Pass the rate window to the tracker
         )
 
         if not rate_limit_ok:
-            logger.warning(f"Rate limit exceeded for {request.client.host} on {request.url.path}")
+            logger.warning(
+                f"Rate limit exceeded for {request.client.host} on {request.url.path} "
+                f"(limit: {rate_limit} requests per {rate_window} seconds)"
+            )
             yield False
             return
 
@@ -44,7 +47,8 @@ async def track_connection(request: Request, rate_limit: int, rate_window: int, 
             source_ip=request.client.host,
             port=request.client.port,
             is_authenticated=is_authenticated,
-            user_id=user_id
+            user_id=user_id,
+            rate_window=rate_window  # Pass the rate window for tracking purposes
         )
         yield True
     except Exception as e:
@@ -106,7 +110,8 @@ class EnhancedConnectionMiddleware(BaseHTTPMiddleware):
                         metrics["per_endpoint_connections"].get(request.url.path, 0)
                     ),
                     "X-Total-Unique-IPs": str(metrics["unique_ips"]),
-                    "X-RateLimit-Limit": str(self.rate_limit)
+                    "X-RateLimit-Limit": str(self.rate_limit),
+                    "X-RateLimit-Window": str(self.rate_window)  # Added rate window to headers
                 })
 
                 return response

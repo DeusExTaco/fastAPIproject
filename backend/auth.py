@@ -46,7 +46,7 @@ logging.info(f"In auth.py oauth2_scheme: {oauth2_scheme}")
 
 
 def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
-    logging.info(f"token in auth.py get_current_user: {token}")
+    # logging.info(f"token in auth.py get_current_user: {token}")
     credentials_exception = HTTPException(
         status_code=401,
         detail="Could not validate credentials",

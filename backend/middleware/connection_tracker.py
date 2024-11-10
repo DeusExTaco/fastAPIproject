@@ -1,7 +1,7 @@
 # middleware/connection_tracker.py
-from fastapi import Request, Response
+from fastapi import Request
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import logging
 from typing import Dict, Set
 from contextlib import asynccontextmanager
@@ -23,7 +23,7 @@ class ConnectionTracker:
     async def add_connection(self, request_id: str):
         async with self._lock:
             self.active_connections.add(request_id)
-            self.connection_times[request_id] = datetime.utcnow()
+            self.connection_times[request_id] = datetime.now(timezone.utc)
             logger.debug(f"Added connection {request_id}. Total active: {self.connection_count}")
 
     async def remove_connection(self, request_id: str):
@@ -37,7 +37,7 @@ class ConnectionTracker:
         while True:
             try:
                 await asyncio.sleep(60)  # Run cleanup every minute
-                current_time = datetime.utcnow()
+                current_time = datetime.now(timezone.utc)
                 stale_threshold = current_time - timedelta(minutes=5)
 
                 async with self._lock:

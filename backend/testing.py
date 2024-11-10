@@ -1,5 +1,3 @@
-from time import timezone
-
 from database import SessionLocal
 from models.performance import ServerPerformance
 from datetime import datetime, timezone

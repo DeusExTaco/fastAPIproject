@@ -9,6 +9,8 @@ from pydantic import BaseModel, EmailStr, Field, field_validator, ConfigDict
 
 from models import UserStatus, UserRole
 
+sampleEmail = "john@example.com"
+sampleTime = "2024-01-01T00:00:00Z"
 
 def validate_password_strength(password: str) -> str:
     """
@@ -18,7 +20,7 @@ def validate_password_strength(password: str) -> str:
         (len(password) < 16, "Password must be at least 16 characters long."),
         (not re.search(r'[A-Z]', password), "Password must contain at least one uppercase letter."),
         (not re.search(r'[a-z]', password), "Password must contain at least one lowercase letter."),
-        (not re.search(r'[0-9]', password), "Password must contain at least one number."),
+        (not re.search(r"\d", password), "Password must contain at least one number."),
         (not re.search(r'[%s]' % re.escape(string.punctuation), password),
          "Password must contain at least one special character.")
     ]
@@ -95,7 +97,7 @@ class UserCreate(UserBase):
 
             logging.info(f"Validated roles: {validated_roles}")
             return validated_roles
-        except ValueError as e:
+        except ValueError:
             valid_roles = ', '.join([role.value for role in UserRole])
             raise ValueError(f"Invalid role. Valid roles are: {valid_roles}")
 
@@ -110,8 +112,8 @@ class UserCreate(UserBase):
                 "first_name": "John",
                 "last_name": "Doe",
                 "user_name": "johndoe",
-                "email": "john@example.com",
-                "password": "StrongP@ssw0rd123",
+                "email": sampleEmail,
+                "password": "****************",
                 "roles": ["USER"],
                 "status": "PENDING"
             }
@@ -141,12 +143,12 @@ class UserResponse(UserBase):
                 "user_name": "johndoe",
                 "first_name": "John",
                 "last_name": "Doe",
-                "email": "john@example.com",
+                "email": sampleEmail,
                 "roles": ["USER"],
                 "status": "ACTIVE",
-                "created_at": "2024-01-01T00:00:00Z",
-                "updated_at": "2024-01-01T00:00:00Z",
-                "last_login": "2024-01-01T00:00:00Z"
+                "created_at": sampleTime,
+                "updated_at": sampleTime,
+                "last_login": sampleTime
             }
         }
     )
@@ -204,7 +206,7 @@ class UserUpdateRequest(BaseModel):
             "example": {
                 "first_name": "John",
                 "last_name": "Doe",
-                "email": "john@example.com",
+                "email": sampleEmail,
                 "roles": ["USER", "ADMIN"],
                 "status": "ACTIVE",
                 "user_name": "johndoe"
@@ -239,12 +241,12 @@ class UserListResponse(BaseModel):
                 "user_name": "johndoe",
                 "first_name": "John",
                 "last_name": "Doe",
-                "email": "john@example.com",
+                "email": sampleEmail,
                 "roles": ["USER"],
                 "status": "active",
-                "created_at": "2024-01-01T00:00:00Z",
-                "updated_at": "2024-01-01T00:00:00Z",
-                "last_login": "2024-01-01T00:00:00Z"
+                "created_at": sampleTime,
+                "updated_at": sampleTime,
+                "last_login": sampleTime
             }
         }
     )

@@ -4,7 +4,7 @@ from typing import Tuple
 from email_utils import encode_token
 
 
-def get_welcome_email_content(email: str, token: str, username: str) -> Tuple[str, str]:
+def get_welcome_email_content(token: str, username: str) -> Tuple[str, str]:
     """
     Returns (plain_text, html) tuple for welcome email
     """
@@ -57,7 +57,7 @@ def send_welcome_email(email: str, token: str, username: str):
     current_dir = os.path.dirname(__file__)
     image_path = os.path.join(current_dir, 'assets', 'handshake.png')
 
-    text_content, html_content = get_welcome_email_content(email, token, username)
+    text_content, html_content = get_welcome_email_content(token, username)  # Remove email parameter
     message = create_mime_message(
         to_email=email,
         subject="Welcome to Your Account - Set Up Your Password",

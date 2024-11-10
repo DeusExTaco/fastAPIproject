@@ -15,6 +15,7 @@ from schemas.user import (
     UserListResponse
 )
 
+userNFError = "User not found"
 
 router = APIRouter(tags=["users"])
 
@@ -39,7 +40,7 @@ def get_user(
     user_service = UserService(db)
     user = user_service.get_user_by_id(user_id)
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail=userNFError)
     return user
 
 
@@ -119,7 +120,7 @@ async def update_user(
 
     user = user_service.get_user_by_id(user_id)
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail=userNFError)
 
     update_data = {k: v for k, v in user_update.model_dump().items() if v is not None}
     return user_service.update_user(user, update_data)
@@ -136,7 +137,7 @@ async def delete_user(
 
     user = user_service.get_user_by_id(user_id)
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail=userNFError)
 
     if user.id == current_user.id:
         raise HTTPException(status_code=400, detail="Cannot delete your own account")

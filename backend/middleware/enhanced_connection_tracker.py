@@ -84,7 +84,7 @@ class EnhancedConnectionTracker:
             return None
 
     async def check_rate_limit(self, source_ip: str, endpoint: str,
-                               limit: int = 100, window_seconds: int = 60) -> bool:
+                               limit: int = 100) -> bool:
         """Check if request should be rate limited"""
         async with self._lock:
             rate_limit_info = self.rate_limits[f"{source_ip}:{endpoint}"]
