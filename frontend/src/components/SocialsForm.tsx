@@ -15,6 +15,18 @@ const SocialsForm: React.FC<SocialsFormProps> = ({
   socialMedia = {},
   onChange,
 }) => {
+
+   // Common props for all form elements
+  const commonProps = {
+    className: "w-full dark:text-white",
+    labelProps: {
+      className: "!text-gray-900 dark:!text-gray-200 peer-focus:!text-blue-500 dark:peer-focus:!text-white peer-disabled:!text-blue-gray-400",
+    },
+    containerProps: {
+      className: "min-w-[100px]",
+    },
+  };
+
   return (
     <div className="space-y-6">
       <div className="space-y-4">
@@ -31,7 +43,7 @@ const SocialsForm: React.FC<SocialsFormProps> = ({
                 label="Twitter Username"
                 value={socialMedia?.twitter ?? ''}
                 onChange={(e) => onChange('twitter', e.target.value)}
-                className="w-full"
+                {...commonProps}
                 crossOrigin={undefined}
                 placeholder={"@username"}
                 onPointerEnterCapture={() => {
@@ -52,7 +64,7 @@ const SocialsForm: React.FC<SocialsFormProps> = ({
                 label="LinkedIn Profile"
                 value={socialMedia?.linkedin ?? ''}
                 onChange={(e) => onChange('linkedin', e.target.value)}
-                className="w-full"
+                {...commonProps}
                 crossOrigin={undefined}
                 placeholder={"LinkedIn profile URL"}
                 onPointerEnterCapture={() => {
@@ -73,7 +85,7 @@ const SocialsForm: React.FC<SocialsFormProps> = ({
                 label="GitHub Username"
                 value={socialMedia?.GitHub ?? ''}
                 onChange={(e) => onChange('GitHub', e.target.value)}
-                className="w-full"
+                {...commonProps}
                 crossOrigin={undefined}
                 placeholder={"GitHub username"}
                 onPointerEnterCapture={() => {
@@ -94,7 +106,7 @@ const SocialsForm: React.FC<SocialsFormProps> = ({
                 label="Instagram Username"
                 value={socialMedia?.Instagram ?? ''}
                 onChange={(e) => onChange('Instagram', e.target.value)}
-                className="w-full"
+                {...commonProps}
                 crossOrigin={undefined}
                 placeholder={"@username"}
                 onPointerEnterCapture={() => {

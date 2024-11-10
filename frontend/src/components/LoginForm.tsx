@@ -1,12 +1,77 @@
 import React, { ChangeEvent, useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import {Button, Input} from "@material-tailwind/react";
+import { Button, Input } from "@material-tailwind/react";
+import ErrorBoundary from './errors/ErrorBoundary.tsx';
 
 interface LoginFormProps {
   onLogin: (userId: number, username: string, roles: string[], token: string) => void;
 }
 
-export const LoginForm: React.FC<LoginFormProps> = ({ onLogin }) => {
+// Custom error class for authentication-related errors
+class AuthenticationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'AuthenticationError';
+  }
+}
+
+// Custom error class for network/system errors
+class SystemError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'SystemError';
+  }
+}
+
+// API request wrapper with proper error handling
+const performLogin = async (username: string, password: string) => {
+  let response;
+  try {
+    response = await fetch('http://localhost:8000/api/auth/login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      credentials: 'include',
+      body: JSON.stringify({
+        username,
+        password
+      })
+    });
+  } catch (error) {
+    // Network errors should propagate to ErrorBoundary
+    return {
+      ok: false,
+      error: new SystemError('Unable to connect to the authentication service. Please try again later.')
+    };
+  }
+
+  try {
+    const data = await response.json();
+
+    if (!response.ok) {
+      // Authentication errors should be handled locally
+      return {
+        ok: false,
+        error: new AuthenticationError(data.detail || 'Invalid credentials')
+      };
+    }
+
+    return {
+      ok: true,
+      data
+    };
+  } catch (error) {
+    // JSON parsing errors should propagate to ErrorBoundary
+    return {
+      ok: false,
+      error: new SystemError('Received invalid response from server')
+    };
+  }
+};
+
+const LoginFormContent: React.FC<LoginFormProps> = ({ onLogin }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -24,7 +89,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onLogin }) => {
 
   useEffect(() => {
     if (searchParams.get('setup') === 'success') {
-      setSuccessMessage('Password has been set up successfully. Please log in with your new credentials.');
+      setSuccessMessage('Password has been successfully changed. Please log in with your new credentials.');
     }
   }, [searchParams]);
 
@@ -33,37 +98,25 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onLogin }) => {
     setError('');
     setSuccessMessage('');
 
-    try {
-      const response = await fetch('http://localhost:8000/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          username,
-          password
-        })
-      });
+    const result = await performLogin(username, password);
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || 'Login failed');
+    if (!result.ok) {
+      if (result.error instanceof AuthenticationError) {
+        // Handle authentication errors locally
+        setError(result.error.message);
+        return;
       }
-
-      const data = await response.json();
-      onLogin(data.user_id, username, data.roles, data.access_token);
-      navigate('/dashboard');
-
-    } catch (error) {
-      console.error('Login error:', error);
-      setError(
-        error instanceof Error
-          ? error.message
-          : 'An error occurred during login. Please try again.'
-      );
+      // Let system errors propagate to ErrorBoundary
+      throw result.error;
     }
+
+    onLogin(
+      result.data.user_id,
+      username,
+      result.data.roles,
+      result.data.access_token
+    );
+    navigate('/dashboard');
   };
 
   return (
@@ -85,46 +138,43 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onLogin }) => {
 
           <div className="mb-4">
             <Input
-                type="text"
-                label="Username"
-                value={username}
-                onChange={handleUsernameChange}
-                // className="!border !border-gray-300 bg-white text-gray-900 shadow-lg shadow-gray-900/5 ring-4 ring-transparent placeholder:text-gray-500 focus:!border-gray-900 focus:!border-t-gray-900 focus:ring-gray-900/10"
-                labelProps={{
-                  className: "text-gray-700",
-                }}
-                containerProps={{className: "min-w-[100px]"}}
-                onPointerEnterCapture={() => {}}
-                onPointerLeaveCapture={() => {}}
-                crossOrigin={undefined}            />
+              type="text"
+              label="Username"
+              value={username}
+              onChange={handleUsernameChange}
+              labelProps={{
+                className: "text-gray-700",
+              }}
+              containerProps={{className: "min-w-[100px]"}}
+              onPointerEnterCapture={() => {}}
+              onPointerLeaveCapture={() => {}}
+              crossOrigin={undefined}
+            />
           </div>
           <div className="mb-4">
             <Input
-                type="password"
-                label="Password"
-                value={password}
-                onChange={handlePasswordChange}
-                // className="!border !border-gray-300 bg-white text-gray-900 shadow-lg shadow-gray-900/5 ring-4 ring-transparent placeholder:text-gray-500 focus:!border-gray-900 focus:!border-t-gray-900 focus:ring-gray-900/10"
-                labelProps={{
-                  className: "text-gray-700",
-                }}
-                containerProps={{className: "min-w-[100px]"}}
-                placeholder={""}
-                onPointerEnterCapture={() => {}}
-                onPointerLeaveCapture={() => {}}
-                crossOrigin={undefined}            />
+              type="password"
+              label="Password"
+              value={password}
+              onChange={handlePasswordChange}
+              labelProps={{
+                className: "text-gray-700",
+              }}
+              containerProps={{className: "min-w-[100px]"}}
+              placeholder={""}
+              onPointerEnterCapture={() => {}}
+              onPointerLeaveCapture={() => {}}
+              crossOrigin={undefined}
+            />
           </div>
           <Button
             type="submit"
             color="blue"
-            className="w-full py-2"
-            variant="gradient"
+            className="w-full py-2 hover:bg-blue-800"
             fullWidth
             placeholder=""
-            onPointerEnterCapture={() => {
-            }}
-            onPointerLeaveCapture={() => {
-            }}
+            onPointerEnterCapture={() => {}}
+            onPointerLeaveCapture={() => {}}
           >
             Login
           </Button>
@@ -141,5 +191,12 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onLogin }) => {
     </div>
   );
 };
+
+// Wrap the form with ErrorBoundary
+const LoginForm: React.FC<LoginFormProps> = (props) => (
+  <ErrorBoundary>
+    <LoginFormContent {...props} />
+  </ErrorBoundary>
+);
 
 export default LoginForm;

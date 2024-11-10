@@ -1,5 +1,5 @@
 import React from 'react';
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate} from 'react-router-dom';
 import { useAuth } from './UseAuth';
 import Home from './pages/Home';
 import LoginPage from './pages/Login';
@@ -8,12 +8,64 @@ import ModeratorDashboard from './pages/ModeratorDashboard';
 import UserDashboard from './pages/UserDashboard';
 import PasswordForm from './components/PasswordForm';
 import PasswordRecovery from './components/PasswordRecovery';
-import ErrorBoundary from './components/ErrorBoundary';
+import ErrorBoundary from './components/errors/ErrorBoundary.tsx';
+import ResetPasswordHandler from './components/ResetPassword';
 
+// Type definitions
+interface DashboardUser {
+  id: number;
+  username: string;
+  roles: string[];
+}
+
+interface ProtectedRouteProps {
+  readonly children: React.ReactNode;
+}
+
+interface DashboardProps {
+  readonly user: DashboardUser;
+}
+
+const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
+  const { isAuthenticated, user } = useAuth();
+
+  if (!isAuthenticated || !user) {
+    console.log('Protected route accessed without auth, redirecting to login');
+    return <Navigate to="/login" replace />;
+  }
+
+  return <ErrorBoundary>{children}</ErrorBoundary>;
+};
+
+const Dashboard: React.FC<DashboardProps> = ({ user }) => {
+  console.log('Dashboard rendering for user:', { username: user.username, roles: user.roles });
+
+  if (user.roles.includes('ADMIN')) {
+    return (
+      <ErrorBoundary>
+        <AdminDashboard user={user} />
+      </ErrorBoundary>
+    );
+  }
+
+  if (user.roles.includes('MODERATOR')) {
+    return (
+      <ErrorBoundary>
+        <ModeratorDashboard user={user} />
+      </ErrorBoundary>
+    );
+  }
+
+  return (
+    <ErrorBoundary>
+      <UserDashboard user={user} />
+    </ErrorBoundary>
+  );
+};
+
+// Main AppRoutes component
 const AppRoutes: React.FC = () => {
-  console.log('AppRoutes rendering');
-  const auth = useAuth();
-  const { isAuthenticated, user, login, logout } = auth;
+  const { isAuthenticated, user, login, logout } = useAuth();
 
   console.log('Auth state in AppRoutes:', { isAuthenticated, hasUser: !!user });
 
@@ -27,37 +79,9 @@ const AppRoutes: React.FC = () => {
     logout();
   };
 
-  // Protected Route wrapper component
-  const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    if (!isAuthenticated || !user) {
-      console.log('Protected route accessed without auth, redirecting to login');
-      return <Navigate to="/login" replace />;
-    }
-    return <ErrorBoundary>{children}</ErrorBoundary>;
-  };
-
-  const ResetPasswordWithToken = () => {
-    const location = useLocation();
-    const searchParams = new URLSearchParams(location.search);
-    const token = searchParams.get('token');
-
-    if (!token) {
-      console.log('No reset token found, redirecting to login');
-      return <Navigate to="/login" replace />;
-    }
-
-    return (
-      <ErrorBoundary>
-        <PasswordForm
-          token={token}
-          title="Reset Password"
-          onSuccess={() => {
-            console.log('Password reset successful');
-            window.location.href = '/login';
-          }}
-        />
-      </ErrorBoundary>
-    );
+  const handlePasswordChangeSuccess = () => {
+    console.log('Password changed successfully');
+    handleLogout();
   };
 
   return (
@@ -85,7 +109,10 @@ const AppRoutes: React.FC = () => {
             )
           }
         />
-        <Route path="/reset-password" element={<ResetPasswordWithToken />} />
+        <Route
+          path="/reset-password"
+          element={<ResetPasswordHandler />}
+        />
 
         {/* Protected routes */}
         <Route
@@ -105,10 +132,7 @@ const AppRoutes: React.FC = () => {
                   userId={user.id}
                   requireCurrentPassword={true}
                   title="Change Password"
-                  onSuccess={() => {
-                    console.log('Password changed successfully');
-                    handleLogout();
-                  }}
+                  onSuccess={handlePasswordChangeSuccess}
                   onLogout={handleLogout}
                 />
               )}
@@ -119,30 +143,5 @@ const AppRoutes: React.FC = () => {
     </ErrorBoundary>
   );
 };
-
-// Dashboard component remains the same
-function Dashboard({ user }: { user: { id: number; username: string; roles: string[] } }) {
-  console.log('Dashboard rendering for user:', { username: user.username, roles: user.roles });
-
-  if (user.roles.includes('ADMIN')) {
-    return (
-      <ErrorBoundary>
-        <AdminDashboard user={user} />
-      </ErrorBoundary>
-    );
-  } else if (user.roles.includes('MODERATOR')) {
-    return (
-      <ErrorBoundary>
-        <ModeratorDashboard user={user} />
-      </ErrorBoundary>
-    );
-  } else {
-    return (
-      <ErrorBoundary>
-        <UserDashboard user={user} />
-      </ErrorBoundary>
-    );
-  }
-}
 
 export default AppRoutes;

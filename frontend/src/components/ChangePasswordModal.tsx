@@ -2,7 +2,7 @@ import React from 'react';
 import { Dialog } from "@material-tailwind/react";
 import { useAuth } from '../UseAuth';
 import PasswordForm from './PasswordForm';
-import ErrorBoundary from './ErrorBoundary';
+import ErrorBoundary from './errors/ErrorBoundary.tsx';
 
 interface ChangePasswordModalProps {
   open: boolean;

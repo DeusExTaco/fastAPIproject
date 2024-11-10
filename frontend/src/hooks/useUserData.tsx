@@ -1,6 +1,6 @@
-// hooks/useUserData.ts
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { DetailedUser } from '../types/types';
+import { DetailedUser } from '../types/usersTypes';
+import { fetchUsers } from '../services/usersService';
 
 interface UseUserDataReturn {
   users: DetailedUser[];
@@ -9,83 +9,74 @@ interface UseUserDataReturn {
   isUpdating: boolean;
   lastUpdated: string | null;
   error: string | null;
-  fetchUsers: () => Promise<void>;
+  fetchUsers: (force?: boolean) => Promise<void>;
   resetPollingTimer: () => void;
 }
+
+const POLLING_INTERVAL = 30000; // 30 seconds
+const MIN_FETCH_INTERVAL = 2000; // 2 seconds minimum between manual fetches
 
 export const useUserData = (
   initialUsers: DetailedUser[],
   token: string | null,
   onAuthError: () => void
 ): UseUserDataReturn => {
-  // State
   const [users, setUsers] = useState<DetailedUser[]>(initialUsers || []);
-  const [isPolling, setIsPolling] = useState(true);
+  const [isPolling, setIsPolling] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Refs
   const isMountedRef = useRef(true);
-  const lastFetchTimeRef = useRef<number>(Date.now());
+  const lastFetchTimeRef = useRef<number>(0);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const tokenRef = useRef(token);
 
-  // Constants
-  const POLLING_INTERVAL = 30000; // 30 seconds
-  const MIN_FETCH_INTERVAL = 2000; // 2 seconds minimum between manual fetches
+  // Keep token ref in sync
+  useEffect(() => {
+    tokenRef.current = token;
+  }, [token]);
 
   const updateUsers = useCallback(async () => {
-    if (!token) return;
+    const currentToken = tokenRef.current;
+    if (!currentToken || !isMountedRef.current) return;
 
     try {
-      const response = await fetch('http://localhost:8000/api/users/', {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        if (response.status === 401) {
-          onAuthError();
-          return;
-        }
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const newUsers = await response.json();
+      const data = await fetchUsers(currentToken);
 
       if (!isMountedRef.current) return;
 
-      setUsers(prevUsers => {
-        const prevJson = JSON.stringify(prevUsers);
-        const newJson = JSON.stringify(newUsers);
-        return prevJson !== newJson ? newUsers : prevUsers;
-      });
+      setUsers(data);
       setLastUpdated(new Date().toUTCString());
+      setError(null);
     } catch (error) {
-      console.error('Error updating users:', error);
-      setError(error instanceof Error ? error.message : 'Failed to update users');
-    }
-  }, [token, onAuthError]);
+      if (!isMountedRef.current) return;
 
-  const fetchUsers = useCallback(async (force: boolean = false) => {
-    if (!token || !isMountedRef.current) {
-      console.log('Fetch skipped - no token or component unmounted');
-      return;
+      if (error instanceof Error) {
+        if (error.message === 'AUTH_ERROR') {
+          onAuthError();
+          return;
+        }
+        setError(error.message);
+      } else {
+        setError('Failed to update users');
+      }
+      console.error('Error updating users:', error);
     }
+  }, [onAuthError]);
+
+  const fetchUsersData = useCallback(async (force: boolean = false) => {
+    const currentToken = tokenRef.current;
+    if (!currentToken) return;
+    if (!isMountedRef.current) return;
 
     const now = Date.now();
     if (!force && now - lastFetchTimeRef.current < MIN_FETCH_INTERVAL) {
-      console.log('Fetch skipped - too soon since last fetch');
       return;
     }
 
     lastFetchTimeRef.current = now;
     setIsUpdating(true);
-    setError(null);
 
     try {
       await updateUsers();
@@ -94,36 +85,26 @@ export const useUserData = (
         setIsUpdating(false);
       }
     }
-  }, [token, updateUsers]);
+  }, [updateUsers]);
 
   const resetPollingTimer = useCallback(() => {
     if (pollingIntervalRef.current) {
       clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+    }
+
+    if (isPolling && tokenRef.current) {
       pollingIntervalRef.current = setInterval(() => {
         if (document.visibilityState === 'visible') {
-          void fetchUsers(false);
+          void fetchUsersData(false);
         }
       }, POLLING_INTERVAL);
     }
-  }, [fetchUsers]);
+  }, [isPolling, fetchUsersData]);
 
-  // Effect for polling
+  // Set up initial fetch and polling
   useEffect(() => {
-    if (!isPolling) {
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-        pollingIntervalRef.current = null;
-      }
-      return;
-    }
-
-    void fetchUsers(false);
-
-    pollingIntervalRef.current = setInterval(() => {
-      if (document.visibilityState === 'visible') {
-        void fetchUsers(false);
-      }
-    }, POLLING_INTERVAL);
+    void fetchUsersData(true);
 
     return () => {
       if (pollingIntervalRef.current) {
@@ -131,14 +112,24 @@ export const useUserData = (
         pollingIntervalRef.current = null;
       }
     };
-  }, [isPolling, fetchUsers]);
+  }, [fetchUsersData]);
 
-  // Effect for visibility changes
+  // Handle polling state changes
+  useEffect(() => {
+    resetPollingTimer();
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+    };
+  }, [isPolling, resetPollingTimer]);
+
+  // Handle visibility change
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible' && isPolling) {
-        lastFetchTimeRef.current = 0;
-        void fetchUsers(true);
+        void fetchUsersData(true);
       }
     };
 
@@ -146,23 +137,13 @@ export const useUserData = (
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [isPolling, fetchUsers]);
+  }, [isPolling, fetchUsersData]);
 
-  // Effect for initial users
-  useEffect(() => {
-    setUsers(initialUsers || []);
-  }, [initialUsers]);
-
-  // Effect for cleanup on unmount
+  // Handle unmount
   useEffect(() => {
     isMountedRef.current = true;
-
     return () => {
       isMountedRef.current = false;
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-        pollingIntervalRef.current = null;
-      }
     };
   }, []);
 
@@ -173,7 +154,7 @@ export const useUserData = (
     isUpdating,
     lastUpdated,
     error,
-    fetchUsers,
+    fetchUsers: fetchUsersData,
     resetPollingTimer
   };
 };

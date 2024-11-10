@@ -88,10 +88,8 @@ export const PasswordRecovery: React.FC = () => {
               fullWidth
               variant={isLoading ? "filled" : "gradient"}
               placeholder=" "
-              onPointerEnterCapture={() => {
-              }}
-              onPointerLeaveCapture={() => {
-              }}
+              onPointerEnterCapture={() => {}}
+              onPointerLeaveCapture={() => {}}
           >
               {isLoading ? 'Sending...' : 'Continue'}
           </Button>

@@ -10,11 +10,11 @@ export const DEFAULT_REFRESH_SETTINGS: RefreshSettings = {
   interval: 1
 };
 
-const getDashboardSettingsKey = (userId: number | undefined): string => {
+const getDashboardSettingsKey = (userId: number | string | undefined): string => {
   return `dashboard_refresh_settings_user_${userId}`;
 };
 
-export const loadRefreshSettings = (userId: number | undefined): RefreshSettings => {
+export const loadRefreshSettings = (userId: number | string): RefreshSettings => {
   if (!userId) return DEFAULT_REFRESH_SETTINGS;
 
   try {
@@ -33,7 +33,7 @@ export const loadRefreshSettings = (userId: number | undefined): RefreshSettings
 };
 
 export const saveRefreshSettings = (
-  userId: number | undefined,
+  userId: number | string,
   settings: RefreshSettings
 ): void => {
   if (!userId) return;
@@ -48,7 +48,7 @@ export const saveRefreshSettings = (
   }
 };
 
-export const clearRefreshSettings = (userId: number | undefined): void => {
+export const clearRefreshSettings = (userId: number | string): void => {
   if (!userId) return;
 
   try {

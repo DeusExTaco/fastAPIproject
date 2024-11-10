@@ -16,6 +16,19 @@ const AddressForm: React.FC<AddressFormProps> = ({
   onRemove,
   onChange,
 }) => {
+
+  // Common props for all form elements
+  const commonProps = {
+    className: "w-full dark:text-white",
+    labelProps: {
+      className: "!text-gray-900 dark:!text-gray-200 peer-focus:!text-blue-500 dark:peer-focus:!text-white peer-disabled:!text-blue-gray-400",
+    },
+    containerProps: {
+      className: "min-w-[100px]",
+    },
+  };
+
+
   return (
     <div className="p-4 border rounded-lg space-y-4">
       <div className="flex justify-between items-center">
@@ -37,7 +50,7 @@ const AddressForm: React.FC<AddressFormProps> = ({
           label="Street"
           value={address?.street ?? ''}
           onChange={(e) => onChange(index, 'street', e.target.value)}
-          className="w-full"
+          {...commonProps}
           crossOrigin={undefined}
           placeholder={""}
           onPointerEnterCapture={() => {}}
@@ -47,7 +60,7 @@ const AddressForm: React.FC<AddressFormProps> = ({
           label="City"
           value={address?.city ?? ''}
           onChange={(e) => onChange(index, 'city', e.target.value)}
-          className="w-full"
+          {...commonProps}
           crossOrigin={undefined}
           placeholder={""}
           onPointerEnterCapture={() => {}}
@@ -57,7 +70,7 @@ const AddressForm: React.FC<AddressFormProps> = ({
           label="State"
           value={address?.state ?? ''}
           onChange={(e) => onChange(index, 'state', e.target.value)}
-          className="w-full"
+          {...commonProps}
           crossOrigin={undefined}
           placeholder={""}
           onPointerEnterCapture={() => {}}
@@ -67,7 +80,7 @@ const AddressForm: React.FC<AddressFormProps> = ({
           label="Country"
           value={address?.country ?? ''}
           onChange={(e) => onChange(index, 'country', e.target.value)}
-          className="w-full"
+          {...commonProps}
           crossOrigin={undefined}
           placeholder={""}
           onPointerEnterCapture={() => {}}
@@ -77,7 +90,7 @@ const AddressForm: React.FC<AddressFormProps> = ({
           label="Postal Code"
           value={address?.postal_code ?? ''}
           onChange={(e) => onChange(index, 'postal_code', e.target.value)}
-          className="w-full"
+          {...commonProps}
           crossOrigin={undefined}
           placeholder={""}
           onPointerEnterCapture={() => {}}

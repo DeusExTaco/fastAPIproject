@@ -52,7 +52,23 @@ interface PerformanceResponse {
   summary: PerformanceSummary;
 }
 
-export const fetchPerformanceMetrics = async (token: string, startTime?: Date, endTime?: Date) => {
+class PerformanceError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'PerformanceError';
+    Object.setPrototypeOf(this, PerformanceError.prototype);
+  }
+}
+
+export const fetchPerformanceMetrics = async (
+  token: string,
+  startTime?: Date,
+  endTime?: Date
+): Promise<PerformanceResponse> => {
+  if (!token) {
+    return Promise.reject(new PerformanceError('Authentication token is required'));
+  }
+
   try {
     const params = new URLSearchParams();
     if (startTime) params.append('start_time', startTime.toISOString());
@@ -66,13 +82,27 @@ export const fetchPerformanceMetrics = async (token: string, startTime?: Date, e
     });
 
     if (!response.ok) {
-      throw new Error('Failed to fetch performance metrics');
+      const errorMessage = await response.text().then(text => {
+        try {
+          const data = JSON.parse(text);
+          return `${data.message || 'Failed to fetch performance metrics'} (Status: ${response.status})`;
+        } catch {
+          return `Failed to fetch performance metrics (Status: ${response.status})`;
+        }
+      });
+
+      return Promise.reject(new PerformanceError(errorMessage));
     }
 
-    return await response.json() as PerformanceResponse;
+    const data = await response.json();
+    return data as PerformanceResponse;
   } catch (error) {
-    console.error('Error fetching performance metrics:', error);
-    throw error;
+    if (error instanceof PerformanceError) {
+      return Promise.reject(error);
+    }
+
+    const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+    return Promise.reject(new PerformanceError(errorMessage));
   }
 };
 
@@ -81,5 +111,6 @@ export type {
   PerformanceSummary,
   PerformanceResponse,
   EndpointStat,
-  IpStat
+  IpStat,
+  PerformanceError
 };

@@ -1,6 +1,6 @@
 import React, {useCallback} from 'react';
 import PasswordForm from './PasswordForm';
-import ErrorBoundary from './ErrorBoundary';
+import ErrorBoundary from './errors/ErrorBoundary.tsx';
 import {useAuth} from '../UseAuth'; // Add this import
 
 interface ChangePasswordProps {

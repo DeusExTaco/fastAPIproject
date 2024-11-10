@@ -42,7 +42,7 @@ const validatePassword = (password: string): string[] => {
     if (!password || !/[a-z]/.test(password)) {
         errors.push("Password must contain at least one lowercase letter.");
     }
-    if (!password || !/[0-9]/.test(password)) {
+    if (!password || !/\d/.test(password)) {
         errors.push("Password must contain at least one number.");
     }
     if (!password || !/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
@@ -314,9 +314,9 @@ const PasswordForm: React.FC<PasswordFormProps> = ({
     };
 
     return (
-        <div className="w-full max-w-md mx-auto bg-white rounded-lg shadow-lg p-6">
+        <div className="w-full max-w-md mx-auto bg-white rounded-lg shadow-lg p-6 dark:bg-gray-800">
             <div className="mb-6">
-                <h2 className="text-2xl font-bold text-gray-800 text-center">{title}</h2>
+                <h2 className="text-2xl font-bold text-gray-800 text-center dark:text-white">{title}</h2>
             </div>
 
             <div className="mb-6">
@@ -342,7 +342,7 @@ const PasswordForm: React.FC<PasswordFormProps> = ({
                             labelProps={{
                                 className: "text-gray-700",
                             }}
-                            containerProps={{ className: "min-w-[100px]" }}
+                            containerProps={{ className: "min-w-[100px" }}
                             crossOrigin={undefined}
                             placeholder=""
                             onPointerEnterCapture={() => {}}
@@ -407,7 +407,7 @@ const PasswordForm: React.FC<PasswordFormProps> = ({
                                 type="button"
                                 onClick={onCancel}
                                 color="gray"
-                                className="flex-1"
+                                className="flex-1 dark:text-white border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
                                 variant="outlined"
                                 ripple={false}
                                 placeholder=""
@@ -421,7 +421,7 @@ const PasswordForm: React.FC<PasswordFormProps> = ({
 
                     <div className="w-full">
                         <div className="mb-2 flex justify-between items-center">
-                            <label className="text-sm font-medium text-gray-900">Password Generator</label>
+                            <span className="text-sm font-medium text-gray-900">Password Generator</span>
                         </div>
                         <div className="flex items-center">
                             <Button

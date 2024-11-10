@@ -2,8 +2,9 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import { ThemeProvider } from "@material-tailwind/react";
-import './index.css';
 import './App.css';
+import './index.css';
+
 
 // Override Material Tailwind defaults
 const themeConfig = {

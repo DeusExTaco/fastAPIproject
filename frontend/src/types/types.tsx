@@ -11,13 +11,13 @@ export interface DetailedUser {
     last_login?: string;
 }
 
-export interface UsersTableProps {
-  users: DetailedUser[];
-  currentUserId: number;
-  isRefreshing: boolean;
-  token: string | null;
-  onDeleteUser: (userId: number) => void;
-  onAuthError: () => void;
-  setActiveComponent: (component: string) => void;
-  onUserUpdated: () => void;
-}
+// export interface UsersTableProps {
+//   users: DetailedUser[];
+//   currentUserId: number;
+//   isRefreshing: boolean;
+//   token: string | null;
+//   onDeleteUser: (userId: number) => void;
+//   onAuthError: () => void;
+//   setActiveComponent: (component: string) => void;
+//   onUserUpdated: () => void;
+// }

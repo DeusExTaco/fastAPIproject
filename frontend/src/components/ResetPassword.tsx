@@ -1,54 +1,50 @@
-import React, {useEffect, useState} from 'react';
+// ResetPassword.tsx
+import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import PasswordForm from './PasswordForm';
+import ErrorBoundary from './errors/ErrorBoundary.tsx';
 
-export const ResetPassword: React.FC = () => {
-  const [token, setToken] = useState<string>('');
-  const [isInitialSetup, setIsInitialSetup] = useState(false);
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const tokenFromUrl = params.get('token');
-    const isWelcome = params.get('welcome') === 'true';
-
-    if (tokenFromUrl) {
-      setToken(tokenFromUrl);
-      setIsInitialSetup(isWelcome);
-    }
-  }, []);
+// Export the component that's being used in AppRoutes
+const ResetPasswordHandler = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const searchParams = new URLSearchParams(location.search);
+  const token = searchParams.get('token');
+  const isWelcome = searchParams.get('welcome') === 'true';
 
   const handleSuccess = () => {
     setTimeout(() => {
-      window.location.href = '/login';
+      navigate('/login?setup=success');
     }, 3000);
   };
 
+  if (!token) {
+    console.log('No reset token found, redirecting to login');
+    return <Navigate to="/login" replace />;
+  }
+
   return (
-    <div className="min-h-screen bg-gray-100 p-4">
-      <div className="max-w-md mx-auto">
-        {isInitialSetup ? (
-          <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-4">
-            <p className="text-blue-700">
-              Welcome! Please set up your password to complete your account creation.
-            </p>
-          </div>
-        ) : null}
+    <ErrorBoundary>
+      <div className="min-h-screen bg-gray-100 p-4">
+        <div className="max-w-md mx-auto">
+          {isWelcome && (
+            <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-4">
+              <p className="text-blue-700">
+                Welcome! Please set up your password to complete your account creation.
+              </p>
+            </div>
+          )}
 
-        <div className="bg-white shadow-lg rounded-lg">
-          <PasswordForm
-            token={token}
-            onSuccess={handleSuccess}
-            title={isInitialSetup ? "Set Up Your Password" : "Reset Password"}
-          />
+          <div className="bg-white shadow-lg rounded-lg">
+            <PasswordForm
+              token={token}
+              onSuccess={handleSuccess}
+              title={isWelcome ? "Set Up Your Password" : "Reset Password"}
+            />
+          </div>
         </div>
-
-        {token ? null : (
-          <div className="mt-4 p-4 bg-yellow-50 border-l-4 border-yellow-500">
-            <p className="text-yellow-700">
-              Invalid or missing reset token. Please check your email link and try again.
-            </p>
-          </div>
-        )}
       </div>
-    </div>
+    </ErrorBoundary>
   );
 };
+
+export default ResetPasswordHandler;
