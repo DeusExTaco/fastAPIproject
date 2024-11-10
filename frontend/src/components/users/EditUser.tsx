@@ -387,7 +387,7 @@ export const EditUser: React.FC<EditUserProps> = ({ userId, onClose, onSuccess, 
                         placeholder=""
                         onPointerEnterCapture={() => {}}
                         onPointerLeaveCapture={() => {}}
-                        className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+                        className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
                     >
                         Cancel
                     </Button>
@@ -398,7 +398,7 @@ export const EditUser: React.FC<EditUserProps> = ({ userId, onClose, onSuccess, 
                         placeholder=""
                         onPointerEnterCapture={() => {}}
                         onPointerLeaveCapture={() => {}}
-                        className="px-4 py-2 bg-blue-600 border border-transparent rounded-md text-sm font-medium text-white hover:bg-blue-700"
+                        className="px-4 py-2 bg-blue-600 border border-transparent rounded-md text-white hover:bg-blue-700"
                     >
                         Save Changes
                     </Button>

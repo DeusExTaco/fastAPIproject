@@ -257,7 +257,7 @@ const UsersTable: React.FC<UsersTableProps> = ({
                     <div className="px-4 pb-4">
                         <Button
                             onClick={() => setIsCreateModalOpen(true)}
-                            className="flex items-center gap-2"
+                            className="flex items-center gap-2 hover:bg-blue-800"
                             color={"blue"}
                             placeholder=""
                             onPointerEnterCapture={() => {}}
