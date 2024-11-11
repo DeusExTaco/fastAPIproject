@@ -18,6 +18,9 @@ dist-ssr
 *.pyc
 *.pyo
 *.pyd
+.git/
+.pytest_cache/
+
 
 # Logs
 logs
