@@ -5,8 +5,9 @@ import UsersTable from '../components/users/UsersTable';
 import ErrorBoundary from '../components/errors/ErrorBoundary';
 import DashboardOverview from '../components/DashboardOverview';
 import SettingsPage from '../components/Settings';
-import ChangePasswordModal from '../components/ChangePasswordModal';
+import ChangePasswordModal from '../components/password/ChangePasswordModal.tsx';
 import type { DetailedUser } from '../types/usersTypes';
+import { useNavigation } from '../contexts/NavigationContext';
 
 import {
   Users,
@@ -38,14 +39,10 @@ function AdminDashboard({ user }: Readonly<AdminDashboardProps>) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [isNavExpanded, setIsNavExpanded] = useState(true);
   const [activeComponent, setActiveComponent] = useState<string>('dashboard');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
-
-  const toggleNav = () => {
-    setIsNavExpanded(prev => !prev);
-  };
+  const { isNavExpanded, toggleNav, canExpandNav } = useNavigation();
 
   const handlePasswordModalOpen = () => {
     setIsPasswordModalOpen(true);
@@ -58,7 +55,7 @@ function AdminDashboard({ user }: Readonly<AdminDashboardProps>) {
 
   const handleAuthError = useCallback(() => {
     logout();
-    navigate('/login');
+    navigate('/');
   }, [logout, navigate]);
 
   // Click outside handler for dropdown
@@ -148,7 +145,7 @@ function AdminDashboard({ user }: Readonly<AdminDashboardProps>) {
 
   const handleLogout = () => {
     logout();
-    navigate('/login');
+    navigate('/');
   };
 
   const menuItems = [
@@ -162,7 +159,6 @@ function AdminDashboard({ user }: Readonly<AdminDashboardProps>) {
     switch (activeComponent) {
       case 'users':
         return (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
             <ErrorBoundary>
               {loading ? (
                 <div className="p-4 text-center">Loading users...</div>
@@ -182,7 +178,6 @@ function AdminDashboard({ user }: Readonly<AdminDashboardProps>) {
                 <div className="p-4 text-red-600">Authentication token not available</div>
               )}
             </ErrorBoundary>
-          </div>
         );
       case 'settings':
         return (
@@ -213,18 +208,21 @@ function AdminDashboard({ user }: Readonly<AdminDashboardProps>) {
                   ${isNavExpanded ? 'w-[calc(100%-4rem)] opacity-100 pl-6' : 'w-0 opacity-0'}`}>
                   <span className="font-bold text-xl dark:text-white">Admin</span>
                 </div>
-                <div className="w-16 flex justify-center">
-                  <button
-                    onClick={toggleNav}
-                    className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
-                  >
-                    {isNavExpanded ? (
-                      <ChevronsLeft className="w-5 h-5 dark:text-white" />
-                    ) : (
-                      <ChevronsRight className="w-5 h-5 dark:text-white" />
-                    )}
-                  </button>
-                </div>
+                {/* Only show toggle when nav can be expanded */}
+                {canExpandNav && (
+                    <div className="w-16 flex justify-center">
+                      <button
+                          onClick={toggleNav}
+                          className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+                      >
+                        {isNavExpanded ? (
+                            <ChevronsLeft className="w-5 h-5 dark:text-white"/>
+                        ) : (
+                            <ChevronsRight className="w-5 h-5 dark:text-white"/>
+                        )}
+                      </button>
+                    </div>
+                )}
               </div>
             </div>
           </div>
@@ -232,49 +230,49 @@ function AdminDashboard({ user }: Readonly<AdminDashboardProps>) {
           {/* Nav Items */}
           <nav className="mt-4 px-3">
             {menuItems.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => setActiveComponent(item.id)}
-                className="w-full text-left group"
-              >
-                <div className="h-14 flex items-center relative">
-                  {/* Collapsed state icon styling */}
-                  {!isNavExpanded && (
-                    <div className="absolute left-0 w-16 -ml-3 flex justify-center">
-                      <div className={`p-2 rounded-lg transition-colors duration-150
-                        ${activeComponent === item.id 
-                          ? 'bg-gray-100 dark:bg-gray-700 text-blue-600 dark:text-blue-400' 
-                          : 'text-gray-700 dark:text-gray-200 group-hover:bg-gray-100 dark:group-hover:bg-gray-700'}`}>
-                        <item.icon className="w-5 h-5" />
-                      </div>
-                    </div>
-                  )}
+                <button
+                    key={item.id}
+                    onClick={() => setActiveComponent(item.id)}
+                    className="w-full text-left group"
+                >
+                  <div className="h-14 flex items-center relative">
+                    {/* Collapsed state icon styling */}
+                    {!isNavExpanded && (
+                        <div className="absolute left-0 w-16 -ml-3 flex justify-center">
+                          <div className={`p-2 rounded-lg transition-colors duration-150
+                        ${activeComponent === item.id
+                              ? 'bg-gray-100 dark:bg-gray-700 text-blue-600 dark:text-blue-400'
+                              : 'text-gray-700 dark:text-gray-200 group-hover:bg-gray-100 dark:group-hover:bg-gray-700'}`}>
+                            <item.icon className="w-5 h-5"/>
+                          </div>
+                        </div>
+                    )}
 
-                  {/* Expanded state styling */}
-                  {isNavExpanded && (
-                    <div className={`w-full flex items-center rounded-lg transition-colors duration-150 relative
-                      ${activeComponent === item.id 
-                        ? 'bg-gray-100 dark:bg-gray-700 text-blue-600 dark:text-blue-400' 
-                        : 'text-gray-700 dark:text-gray-200 group-hover:bg-gray-100 dark:group-hover:bg-gray-700'}`}>
-                      {/* Left accent border - only shown when selected */}
-                      {activeComponent === item.id && (
-                        <div className="absolute left-0 top-0 bottom-0 w-1 rounded-l-lg
-                          bg-blue-600 dark:bg-blue-400 transition-colors duration-150" />
-                      )}
-                      {/* Icon */}
-                      <div className="w-16 flex justify-center p-2">
-                        <item.icon className="w-5 h-5" />
-                      </div>
-                      {/* Text */}
-                      <div className={`transition-[width,opacity] duration-200 ease-out
+                    {/* Expanded state styling */}
+                    {isNavExpanded && (
+                        <div className={`w-full flex items-center rounded-lg transition-colors duration-150 relative
+                      ${activeComponent === item.id
+                            ? 'bg-gray-100 dark:bg-gray-700 text-blue-600 dark:text-blue-400'
+                            : 'text-gray-700 dark:text-gray-200 group-hover:bg-gray-100 dark:group-hover:bg-gray-700'}`}>
+                          {/* Left accent border - only shown when selected */}
+                          {activeComponent === item.id && (
+                              <div className="absolute left-0 top-0 bottom-0 w-1 rounded-l-lg
+                          bg-blue-600 dark:bg-blue-400 transition-colors duration-150"/>
+                          )}
+                          {/* Icon */}
+                          <div className="w-16 flex justify-center p-2">
+                            <item.icon className="w-5 h-5"/>
+                          </div>
+                          {/* Text */}
+                          <div className={`transition-[width,opacity] duration-200 ease-out
                         overflow-hidden whitespace-nowrap delay-[0ms,100ms]
                         ${isNavExpanded ? 'w-40 opacity-100' : 'w-0 opacity-0'}`}>
-                        {item.label}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </button>
+                            {item.label}
+                          </div>
+                        </div>
+                    )}
+                  </div>
+                </button>
             ))}
           </nav>
         </div>
@@ -291,26 +289,26 @@ function AdminDashboard({ user }: Readonly<AdminDashboardProps>) {
               {/* User Dropdown */}
               <div className="relative h-full flex items-center">
                 <button
-                  id="dropdown-trigger"
-                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                  className="flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                    id="dropdown-trigger"
+                    onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                    className="flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                 >
                   <div className="bg-blue-100 dark:bg-blue-900 p-2 rounded-full">
-                    <User className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                    <User className="w-5 h-5 text-blue-600 dark:text-blue-400"/>
                   </div>
                   <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
                     {user.username}
                   </span>
                   <ChevronDown
-                    className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${
-                      isDropdownOpen ? 'rotate-180' : ''
-                    }`}
+                      className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${
+                          isDropdownOpen ? 'rotate-180' : ''
+                      }`}
                   />
                 </button>
 
                 {isDropdownOpen && (
-                  <div
-                    id="user-dropdown"
+                    <div
+                        id="user-dropdown"
                     className="absolute right-0 mt-2 w-56 rounded-lg bg-white dark:bg-gray-800 shadow-lg
                              ring-1 ring-black ring-opacity-5 focus:outline-none z-40"
                     style={{ top: '100%' }}
@@ -341,6 +339,7 @@ function AdminDashboard({ user }: Readonly<AdminDashboardProps>) {
                         onClick={handlePasswordModalOpen}
                         className="w-full flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-200
                                  hover:bg-gray-100 dark:hover:bg-gray-700"
+
                       >
                         <Lock className="w-4 h-4 mr-2" />
                         Change Password

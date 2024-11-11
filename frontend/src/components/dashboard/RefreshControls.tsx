@@ -1,23 +1,44 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { RefreshCw, Settings } from 'lucide-react';
-import type { RefreshControlsProps } from '../../types/dashboardTypes';
-import {
-  Select,
-  Option,
-  Switch,
-} from "@material-tailwind/react";
+import { Select, Option, Switch } from "@material-tailwind/react";
 
-export const RefreshControls: React.FC<RefreshControlsProps> = ({
+interface RefreshSettings {
+  enabled: boolean;
+  interval: number;
+}
+
+interface RefreshControlsProps {
+  lastRefresh: Date | null;
+  onRefresh: () => void;
+  isLoading: boolean;
+  refreshSettings: RefreshSettings;
+  onUpdateSettings: (settings: RefreshSettings) => void;
+  onResetSettings: () => void;
+}
+
+interface DropdownStyles {
+  width: number;
+  left: string;
+  transform: string;
+}
+
+const RefreshControls = ({
   lastRefresh,
   onRefresh,
   isLoading,
   refreshSettings,
   onUpdateSettings,
   onResetSettings
-}) => {
+}: RefreshControlsProps) => {
   const [showSettings, setShowSettings] = useState(false);
-  const settingsRef = useRef<HTMLDivElement>(null);
+  const settingsRef = useRef<HTMLDivElement | null>(null);
+  const parentRef = useRef<HTMLDivElement | null>(null);
   const [localSettings, setLocalSettings] = useState(refreshSettings);
+  const [dropdownStyles, setDropdownStyles] = useState<DropdownStyles>({
+    width: 0,
+    left: 'auto',
+    transform: 'none'
+  });
 
   useEffect(() => {
     setLocalSettings(refreshSettings);
@@ -34,13 +55,42 @@ export const RefreshControls: React.FC<RefreshControlsProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    if (showSettings && parentRef.current) {
+      const calculateDropdown = () => {
+        const parentRect = parentRef.current?.getBoundingClientRect();
+        if (parentRect) {
+          const screenWidth = window.innerWidth;
+          let width, left, transform;
+
+          if (screenWidth < 768) {
+            // For mobile, use container width minus padding
+            width = Math.min(400, parentRect.width - 32);
+            left = '50%';
+            transform = 'translateX(-50%)';
+          } else {
+            width = 280; // Fixed width for desktop
+            left = 'auto';
+            transform = 'none';
+          }
+
+          setDropdownStyles({ width, left, transform });
+        }
+      };
+
+      calculateDropdown();
+      window.addEventListener('resize', calculateDropdown);
+      return () => window.removeEventListener('resize', calculateDropdown);
+    }
+  }, [showSettings]);
+
   const handleSettingsUpdate = (updates: Partial<typeof refreshSettings>) => {
     const newSettings = { ...localSettings, ...updates };
     setLocalSettings(newSettings);
     onUpdateSettings(newSettings);
   };
 
-  const formatLastRefresh = (date: Date) => {
+  const formatLastRefresh = (date: Date): string => {
     return date.toLocaleTimeString('en-US', {
       hour: '2-digit',
       minute: '2-digit',
@@ -57,12 +107,12 @@ export const RefreshControls: React.FC<RefreshControlsProps> = ({
   ];
 
   return (
-    <div className="flex items-center justify-between mb-6 bg-white rounded-xl shadow-md p-4">
-      <div className="flex items-center space-x-4">
-        <div className="text-sm text-gray-500">
-          Last updated: {lastRefresh ? formatLastRefresh(lastRefresh) : 'Never'}
-        </div>
+    <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4 mb-6 bg-white rounded-xl shadow-md p-4">
+      <div className="text-sm text-gray-500">
+        Last updated: {lastRefresh ? formatLastRefresh(lastRefresh) : 'Never'}
+      </div>
 
+      <div ref={parentRef} className="flex items-center gap-2">
         <button
           onClick={onRefresh}
           disabled={isLoading}
@@ -86,63 +136,73 @@ export const RefreshControls: React.FC<RefreshControlsProps> = ({
           </button>
 
           {showSettings && (
-            <div className="absolute top-0 left-full ml-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200
-                          transform transition-all duration-200 ease-in-out z-50"
-                 style={{ marginTop: '-4px' }}
+            <div
+              style={{
+                width: `${dropdownStyles.width}px`,
+                left: dropdownStyles.left,
+                transform: dropdownStyles.transform
+              }}
+              className="absolute z-50 bg-white rounded-lg shadow-lg border border-gray-200
+                       transition-all duration-200 ease-in-out top-full mt-2 md:right-0"
             >
-              <div className="p-4 space-y-4">
-                <div className="flex items-center justify-between w-full">
-                  <label className="text-sm font-medium text-gray-700">
-                    Auto-refresh
-                  </label>
-                  <Switch
+              <div className="p-3">
+                <div className="mb-3">
+                  <div className="flex flex-col gap-1.5">
+                    <span className="text-sm font-medium text-gray-700">
+                      Auto-refresh
+                    </span>
+                    <Switch
                       checked={localSettings.enabled}
                       onChange={() => handleSettingsUpdate({enabled: !localSettings.enabled})}
                       color="blue"
-                      className="h-full"
-                      onPointerEnterCapture={undefined}
-                      onPointerLeaveCapture={undefined}
-                      crossOrigin={undefined}
-                  />
+                      crossOrigin={""}
+                      placeholder={""}
+                      onPointerEnterCapture={() => {}}
+                      onPointerLeaveCapture={() => {}}
+                    />
+                  </div>
                 </div>
 
-                <div className="space-y-2">
+                <div className="mb-3">
                   <Select
-                      disabled={!localSettings.enabled}
-                      value={localSettings.interval.toString()}
-                      onChange={(value) => value && handleSettingsUpdate({interval: parseInt(value)})}
-                      variant="outlined"
-                      color="blue"
-                      className="w-full"
-                      label="Refresh interval"
-                      placeholder=""
-                      onPointerEnterCapture={undefined}
-                      onPointerLeaveCapture={undefined}>
-                    {intervals.map((interval) => (
-                        <Option key={interval.value} value={interval.value}>
-                          {interval.label}
-                        </Option>
+                    disabled={!localSettings.enabled}
+                    value={localSettings.interval.toString()}
+                    onChange={(value) => value && handleSettingsUpdate({interval: parseInt(value)})}
+                    label="Refresh interval"
+                    placeholder={""}
+                    onPointerEnterCapture={() => {}}
+                    onPointerLeaveCapture={() => {}}
+                    className="text-sm"
+                    menuProps={{
+                      className: "text-sm"
+                    }}
+                    labelProps={{
+                      className: "text-sm"
+                    }}
+                    containerProps={{
+                      className: "min-w-[120px]"
+                    }}
+                  >
+                    {intervals.map(({value, label}) => (
+                      <Option key={value} value={value} className="text-sm">
+                        {label}
+                      </Option>
                     ))}
                   </Select>
                 </div>
 
-                <div className="pt-2 flex justify-between items-center border-t border-gray-100">
-                  <span className="text-xs text-gray-500">
+                <div className="pt-2 border-t border-gray-100">
+                  <span className="block text-xs text-gray-500 mb-1.5">
                     Settings are saved automatically
                   </span>
                   <button
-                      onClick={onResetSettings}
-                      className="text-xs text-red-600 hover:text-red-700
-                            transition-colors duration-150"
+                    onClick={onResetSettings}
+                    className="text-xs text-red-600 hover:text-red-700"
                   >
                     Reset to Default
                   </button>
                 </div>
               </div>
-
-              {/* Arrow */}
-              <div
-                  className="absolute -left-2 top-[13px] w-3 h-3 rotate-45 bg-white border-l border-t border-gray-200"/>
             </div>
           )}
         </div>
@@ -150,3 +210,5 @@ export const RefreshControls: React.FC<RefreshControlsProps> = ({
     </div>
   );
 };
+
+export default RefreshControls;

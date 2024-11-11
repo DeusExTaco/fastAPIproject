@@ -1,19 +1,15 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { UserPlus } from 'lucide-react';
-import {
-  Button,
-  Dialog,
-  DialogHeader,
-  DialogBody
-} from "@material-tailwind/react";
+import { Button, Card } from "@material-tailwind/react";
 
 import { useUserData } from '../../hooks/useUserData';
 import { TableHeader, TableRow, EmptyTableRows } from './TableComponents';
 import TableRefreshControls from './TableRefreshControls';
 import DeleteModal from '../users/DeleteModal';
-import Pagination from '../users/Pagination';
-import Signup from '../Signup';
-import { EditUser } from '../users/EditUser';
+import Pagination from './Pagination';
+import { AddUserDialog } from '../users/AddUserDiaglog';
+import { EditUserDialog } from '../users/EditUserDialog';
+import ErrorBoundary from '../errors/ErrorBoundary';
 
 import { deleteUser } from '../../services/usersService';
 import { loadSortSettings, saveSortSettings, sortUsers } from '../../utils/usersUtils';
@@ -36,7 +32,6 @@ const UsersTable: React.FC<UsersTableProps> = ({
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [editingUserId, setEditingUserId] = useState<number | null>(null);
-  const [fetchError, setFetchError] = useState<string | null>(null);
 
   const {
     users,
@@ -50,74 +45,34 @@ const UsersTable: React.FC<UsersTableProps> = ({
 
   const itemsPerPage = 10;
 
-  // Enable polling and initial fetch when component mounts and token is available
+  // Initial data fetch and polling setup
   useEffect(() => {
-    const initializeTable = async () => {
-      if (!token) {
-        console.log('Initialization skipped - no token available');
-        return;
-      }
-
-      try {
-        await fetchUsers(true); // Force initial fetch
-        setIsPolling(true); // Enable polling after initial fetch
-      } catch (error) {
-        console.error('Failed to initialize table:', error);
-      }
-    };
-
-    void initializeTable();
-
-    // Cleanup on unmount
-    return () => {
-      setIsPolling(false);
-    };
+    if (token) {
+      void fetchUsers(true);
+      setIsPolling(true);
+    }
+    return () => setIsPolling(false);
   }, [token, fetchUsers, setIsPolling]);
 
-  // Error handling effect
-  useEffect(() => {
-    if (userDataError) {
-      setFetchError(userDataError);
-    } else {
-      setFetchError(null);
-    }
-  }, [userDataError]);
-
-  // Page reset when users change
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [users.length]);
-
-  // Immediate refresh handler with debounce check
-  const refreshTable = useCallback(async () => {
-    if (!token) {
-      console.log('Refresh skipped - no token available');
-      return;
-    }
-
+  const handleRefresh = useCallback(async () => {
+    if (!token) return;
     try {
-      await fetchUsers(true); // Force immediate refresh
-      resetPollingTimer(); // Reset polling timer
+      await fetchUsers(true);
+      resetPollingTimer();
     } catch (error) {
-      console.error('Failed to refresh table:', error);
-      throw error; // Propagate error for handling in UI
+      console.error('Refresh failed:', error);
     }
   }, [token, fetchUsers, resetPollingTimer]);
 
-  // Sort handlers
   const handleSort = useCallback((field: keyof DetailedUser) => {
     const newSettings = {
       field,
-      direction: field === sort.field
-        ? sort.direction === 'asc' ? 'desc' : 'asc'
-        : 'asc'
+      direction: field === sort.field ? (sort.direction === 'asc' ? 'desc' : 'asc') : 'asc'
     } as const;
-
     setSort(newSettings);
     saveSortSettings(newSettings, currentUserId);
   }, [sort.field, sort.direction, currentUserId]);
 
-  // Delete handlers
   const handleDeleteClick = useCallback((userId: number, userName: string) => {
     setUserToDelete({ id: userId, userName });
     setIsDeleteModalOpen(true);
@@ -125,65 +80,26 @@ const UsersTable: React.FC<UsersTableProps> = ({
   }, []);
 
   const handleConfirmDelete = useCallback(async () => {
-    if (!userToDelete || !token) {
-      setDeleteError('Authentication token missing');
-      onAuthError();
-      return;
-    }
-
+    if (!userToDelete || !token) return;
     setIsDeleting(true);
-    setDeleteError(null);
-
     try {
       await deleteUser(userToDelete.id, token);
       setIsDeleteModalOpen(false);
       setUserToDelete(null);
-      await refreshTable(); // Immediate refresh after delete
       onDeleteUser?.(userToDelete.id);
+      await handleRefresh();
     } catch (error) {
       if (error instanceof Error) {
-        if (error.message === 'AUTH_ERROR') {
-          onAuthError();
-        } else if (error.message === 'PERMISSION_ERROR') {
-          setDeleteError('You do not have permission to delete users');
-        } else {
-          setDeleteError(error.message);
-        }
+        setDeleteError(error.message === 'AUTH_ERROR' ? 'Authentication failed' :
+                      error.message === 'PERMISSION_ERROR' ? 'Permission denied' : error.message);
+        if (error.message === 'AUTH_ERROR') onAuthError();
       }
     } finally {
       setIsDeleting(false);
     }
-  }, [userToDelete, token, refreshTable, onDeleteUser, onAuthError]);
+  }, [userToDelete, token, onDeleteUser, handleRefresh, onAuthError]);
 
-  // Success handlers with immediate refresh
-  const handleEditSuccess = useCallback(async () => {
-    setEditingUserId(null);
-    try {
-      await refreshTable(); // Immediate refresh after edit
-    } catch (error) {
-      console.error('Failed to refresh after edit:', error);
-    }
-  }, [refreshTable]);
-
-  const handleCreateSuccess = useCallback(async () => {
-    setIsCreateModalOpen(false);
-    try {
-      await refreshTable(); // Immediate refresh after create
-    } catch (error) {
-      console.error('Failed to refresh after create:', error);
-    }
-  }, [refreshTable]);
-
-  // Manual refresh handler
-  const handleManualRefresh = useCallback(async () => {
-    try {
-      await refreshTable();
-    } catch (error) {
-      console.error('Manual refresh failed:', error);
-    }
-  }, [refreshTable]);
-
-  // Sort and paginate users
+  // Data processing
   const sortedUsers = sortUsers(users, sort);
   const totalPages = Math.ceil(sortedUsers.length / itemsPerPage);
   const currentUsers = sortedUsers.slice(
@@ -191,7 +107,6 @@ const UsersTable: React.FC<UsersTableProps> = ({
     currentPage * itemsPerPage
   );
 
-  // Early return for empty state
   if (!users.length) {
     return (
       <div className="w-full p-8 text-center">
@@ -201,106 +116,112 @@ const UsersTable: React.FC<UsersTableProps> = ({
   }
 
   return (
-    <div>
-      {fetchError && (
-        <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4">
-          <p className="text-red-700">{fetchError}</p>
-        </div>
-      )}
-
-      <div className={`w-full shadow-lg transition-opacity duration-200 ${
-        isRefreshing || isUpdating ? 'opacity-50' : 'opacity-100'
-      }`}>
-        <div className="w-full bg-white rounded-lg">
-          <TableRefreshControls
-            onRefresh={handleManualRefresh}
-            isUpdating={isUpdating}
-            lastUpdated={lastUpdated}
-            userId={currentUserId}
-          />
-
-          <div className="px-4 pb-4">
-            <Button
-              onClick={() => setIsCreateModalOpen(true)}
-              className="flex items-center gap-2 hover:bg-blue-800"
-              color="blue"
-              placeholder={undefined}
-              onPointerEnterCapture={undefined}
-              onPointerLeaveCapture={undefined}
-            >
-              <UserPlus className="w-4 h-4" />
-              <span>Create User</span>
-            </Button>
+    <ErrorBoundary>
+      <>
+        {/* Refresh Controls Card */}
+        <Card
+            className="w-full bg-white shadow-md"
+            placeholder={""}
+            onPointerEnterCapture={() => {}}
+            onPointerLeaveCapture={() => {}}
+        >
+          <div className="px-6 py-4"> {/* Reduced padding */}
+            <TableRefreshControls
+              onRefresh={handleRefresh}
+              isUpdating={isUpdating}
+              lastUpdated={lastUpdated}
+              userId={currentUserId}
+            />
           </div>
+        </Card>
 
-          <div className="overflow-x-auto">
-            <div className="overflow-y-auto" style={{ maxHeight: '500px' }}>
-              <table className="w-full min-w-max table-auto">
-                <TableHeader
-                  onSort={handleSort}
-                  sortField={sort.field}
-                  sortDirection={sort.direction}
-                />
-                <tbody>
-                  {currentUsers.map((user, index) => (
-                    <TableRow
-                      key={user.id}
-                      user={user}
-                      currentUserId={currentUserId}
-                      onEdit={setEditingUserId}
-                      onDelete={handleDeleteClick}
-                      index={index}
+        {/* Main Users Management Card */}
+        <Card
+            className="w-full bg-white shadow-md mt-6"
+            placeholder={""}
+            onPointerEnterCapture={() => {}}
+            onPointerLeaveCapture={() => {}}
+        >
+          <div className="p-6">
+            {/* Error Alert */}
+            {userDataError && (
+              <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4">
+                <p className="text-red-700">{userDataError}</p>
+              </div>
+            )}
+
+            {/* Create User Button */}
+            <div className="mb-6">
+              <Button
+                onClick={() => setIsCreateModalOpen(true)}
+                className="flex items-center gap-2"
+                color="blue"
+                placeholder={""}
+                onPointerEnterCapture={() => {}}
+                onPointerLeaveCapture={() => {}}
+              >
+                <UserPlus className="h-4 w-4" />
+                Create User
+              </Button>
+            </div>
+
+            {/* Users Table */}
+            <div className={`mb-6 transition-opacity duration-200 ${
+              isRefreshing || isUpdating ? 'opacity-50' : 'opacity-100'
+            }`}>
+              <div className="border border-gray-200 rounded-lg overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-max table-auto">
+                    <TableHeader
+                      onSort={handleSort}
+                      sortField={sort.field}
+                      sortDirection={sort.direction}
                     />
-                  ))}
-                  {currentUsers.length < itemsPerPage && (
-                    <EmptyTableRows
-                      startIndex={currentUsers.length}
-                      count={itemsPerPage - currentUsers.length}
-                      columnsCount={7}
-                    />
-                  )}
-                </tbody>
-              </table>
+                    <tbody>
+                      {currentUsers.map((user, index) => (
+                        <TableRow
+                          key={user.id}
+                          user={user}
+                          currentUserId={currentUserId}
+                          onEdit={setEditingUserId}
+                          onDelete={handleDeleteClick}
+                          index={index}
+                        />
+                      ))}
+                      {currentUsers.length < itemsPerPage && (
+                        <EmptyTableRows
+                          startIndex={currentUsers.length}
+                          count={itemsPerPage - currentUsers.length}
+                          columnsCount={7}
+                        />
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            {/* Pagination */}
+            <div>
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onNext={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
+                onPrev={() => setCurrentPage(p => Math.max(p - 1, 1))}
+              />
             </div>
           </div>
-
-          <Pagination
-            currentPage={currentPage}
-            totalPages={totalPages}
-            onNext={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
-            onPrev={() => setCurrentPage(p => Math.max(p - 1, 1))}
-          />
-        </div>
+        </Card>
 
         {/* Modals */}
-        <Dialog
-            open={isCreateModalOpen}
-            handler={() => setIsCreateModalOpen(false)}
-            className="bg-white"
-            size="sm"
-            placeholder={undefined}
-            onPointerEnterCapture={undefined}
-            onPointerLeaveCapture={undefined}        >
-          <DialogHeader
-              className="border-b border-gray-200 px-6 py-4"
-              placeholder={undefined}
-              onPointerEnterCapture={undefined}
-              onPointerLeaveCapture={undefined}
-          >
-            Create New User
-          </DialogHeader>
-          <DialogBody
-              className="p-6"
-              placeholder={undefined}
-              onPointerEnterCapture={undefined}
-              onPointerLeaveCapture={undefined}
-          >
-            <Signup
-              onSuccess={handleCreateSuccess}
-              onCancel={() => setIsCreateModalOpen(false)}
-            />
-          </DialogBody>
-        </Dialog>
+        <AddUserDialog
+          open={isCreateModalOpen}
+          onClose={() => setIsCreateModalOpen(false)}
+          onSuccess={async () => {
+            setIsCreateModalOpen(false);
+            await handleRefresh();
+          }}
+        />
 
         <DeleteModal
           isOpen={isDeleteModalOpen}
@@ -316,19 +237,19 @@ const UsersTable: React.FC<UsersTableProps> = ({
         />
 
         {editingUserId && (
-          <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-            <div className="relative top-20 mx-auto p-5 w-full max-w-4xl">
-              <EditUser
-                userId={editingUserId}
-                onClose={() => setEditingUserId(null)}
-                onSuccess={handleEditSuccess}
-                token={token}
-              />
-            </div>
-          </div>
+          <EditUserDialog
+            open={true}
+            onClose={() => setEditingUserId(null)}
+            onSuccess={async () => {
+              setEditingUserId(null);
+              await handleRefresh();
+            }}
+            userId={editingUserId}
+            token={token}
+          />
         )}
-      </div>
-    </div>
+      </>
+    </ErrorBoundary>
   );
 };
 

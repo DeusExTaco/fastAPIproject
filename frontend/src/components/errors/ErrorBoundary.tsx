@@ -1,3 +1,4 @@
+// ErrorBoundary.tsx
 import React, { Component, ReactNode } from 'react';
 import { Button } from "@material-tailwind/react";
 import { AlertTriangle, RefreshCw } from 'lucide-react';
@@ -49,12 +50,15 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   };
 
   render() {
-    if (this.state.hasError) {
+    if (this.state.hasError && this.state.error) {
       if (this.props.fallbackComponent) {
-        return <this.props.fallbackComponent
-          error={this.state.error!}
-          reset={this.handleRetry}
-        />;
+        const FallbackComponent = this.props.fallbackComponent;
+        return (
+          <FallbackComponent
+            error={this.state.error}
+            reset={this.handleRetry}
+          />
+        );
       }
 
       return (
@@ -67,7 +71,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
           </div>
 
           <div className="text-red-600 mb-6">
-            {this.state.error?.message || 'An unexpected error occurred'}
+            {this.state.error.message || 'An unexpected error occurred'}
           </div>
 
           <div className="flex gap-4">
@@ -90,7 +94,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
               </summary>
               <pre className="mt-2 text-xs bg-gray-100 p-4 rounded-lg overflow-auto">
                 <code>
-                  {this.state.error?.stack}
+                  {this.state.error.stack}
                   {'\n\nComponent Stack:\n'}
                   {this.state.errorInfo?.componentStack}
                 </code>

@@ -1,15 +1,14 @@
 import React from 'react';
-import { Routes, Route, Navigate} from 'react-router-dom';
+import { Routes, Route, Navigate, useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from './UseAuth';
 import Home from './pages/Home';
-import LoginPage from './pages/Login';
 import AdminDashboard from './pages/AdminDashboard';
 import ModeratorDashboard from './pages/ModeratorDashboard';
 import UserDashboard from './pages/UserDashboard';
-import PasswordForm from './components/PasswordForm';
-import PasswordRecovery from './components/PasswordRecovery';
-import ErrorBoundary from './components/errors/ErrorBoundary.tsx';
-import ResetPasswordHandler from './components/ResetPassword';
+import PasswordForm from './components/password/PasswordForm';
+import PasswordRecovery from './components/password/PasswordRecovery';
+import ErrorBoundary from './components/errors/ErrorBoundary';
+import ResetPasswordHandler from './components/password/ResetPassword';
 
 // Type definitions
 interface DashboardUser {
@@ -26,12 +25,24 @@ interface DashboardProps {
   readonly user: DashboardUser;
 }
 
+interface HomeWithLoginProps {
+  openLogin?: boolean;
+  onLogin: (userId: number, username: string, roles: string[], token: string) => void;
+}
+
+const HomeWithLogin: React.FC<HomeWithLoginProps> = ({ openLogin = false, onLogin }) => {
+  const [searchParams] = useSearchParams();
+  const setupSuccess = searchParams.get('setup') === 'success';
+
+  return <Home initialLoginOpen={openLogin || setupSuccess} onLogin={onLogin} />;
+};
+
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   const { isAuthenticated, user } = useAuth();
 
   if (!isAuthenticated || !user) {
-    console.log('Protected route accessed without auth, redirecting to login');
-    return <Navigate to="/login" replace />;
+    console.log('Protected route accessed without auth, redirecting to home with login dialog');
+    return <Navigate to="/?login=true" replace />;
   }
 
   return <ErrorBoundary>{children}</ErrorBoundary>;
@@ -66,6 +77,8 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
 // Main AppRoutes component
 const AppRoutes: React.FC = () => {
   const { isAuthenticated, user, login, logout } = useAuth();
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
 
   console.log('Auth state in AppRoutes:', { isAuthenticated, hasUser: !!user });
 
@@ -77,6 +90,7 @@ const AppRoutes: React.FC = () => {
   const handleLogout = () => {
     console.log('Logout handler called');
     logout();
+    navigate('/');
   };
 
   const handlePasswordChangeSuccess = () => {
@@ -88,16 +102,18 @@ const AppRoutes: React.FC = () => {
     <ErrorBoundary>
       <Routes>
         {/* Public routes */}
-        <Route path="/" element={<Home />} />
+        <Route
+          path="/"
+          element={
+            <HomeWithLogin
+              openLogin={searchParams.get('login') === 'true'}
+              onLogin={handleLogin}
+            />
+          }
+        />
         <Route
           path="/login"
-          element={
-            isAuthenticated ? (
-              <Navigate to="/dashboard" replace />
-            ) : (
-              <LoginPage onLogin={handleLogin} />
-            )
-          }
+          element={<Navigate to="/?login=true" replace />}
         />
         <Route
           path="/password-recovery"

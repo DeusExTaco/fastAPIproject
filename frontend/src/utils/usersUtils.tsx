@@ -57,7 +57,10 @@ export const loadRefreshSettings = (userId?: string | number): RefreshSettings =
   }
 };
 
-export const saveRefreshSettings = (settings: RefreshSettings, userId?: string | number): void => {
+export const saveRefreshSettings = (settings: string | number | undefined, userId?: {
+    interval: number;
+    enabled: boolean
+}): void => {
   const key = userId ? `users_refresh_settings_${userId}` : 'users_refresh_settings';
   localStorage.setItem(key, JSON.stringify(settings));
 };

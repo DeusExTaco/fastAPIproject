@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import ChangePassword from '../components/ChangePassword';
+import ChangePassword from '../components/password/ChangePassword.tsx';
 import { useAuth } from '../UseAuth';
 
 console.log("ModeratorDashboard file loaded");
@@ -30,7 +30,7 @@ function ModeratorDashboard({ user }: Readonly<ModeratorDashboardProps>) {
 
   const handleLogout = () => {
     logout();
-    navigate('/login');
+    navigate('/');
   };
 
   const handlePasswordChanged = () => {

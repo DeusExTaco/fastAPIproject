@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 
 import { StatCard } from './dashboard/StatCard';
-import { RefreshControls } from './dashboard/RefreshControls';
+import RefreshControls from './dashboard/RefreshControls.tsx';
 import {
   SystemResourcesChart,
   ConnectionMetricsChart,

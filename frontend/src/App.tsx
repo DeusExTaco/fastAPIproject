@@ -1,6 +1,7 @@
 import { BrowserRouter as Router } from 'react-router-dom';
 import { AuthProvider } from './AuthProvider';
 import { ThemeProvider } from './contexts/ThemeContexts';
+import { NavigationProvider } from './contexts/NavigationContext';
 import AppRoutes from './AppRoutes';
 import ErrorBoundary from './components/errors/ErrorBoundary.tsx';
 import { ThemeProvider as MaterialThemeProvider } from "@material-tailwind/react";
@@ -23,12 +24,14 @@ function App() {
     <ErrorBoundary>
       <MaterialThemeProvider value={themeConfig}>
         <AuthProvider>
-          <ThemeProvider> {/* Add our custom ThemeProvider here */}
-            <Router>
-              <div className="w-screen h-screen m-0 p-0 overflow-hidden">
-                <AppRoutes />
-              </div>
-            </Router>
+          <ThemeProvider>
+            <NavigationProvider>
+              <Router>
+                <div className="w-screen h-screen m-0 p-0 overflow-hidden">
+                  <AppRoutes />
+                </div>
+              </Router>
+            </NavigationProvider>
           </ThemeProvider>
         </AuthProvider>
       </MaterialThemeProvider>

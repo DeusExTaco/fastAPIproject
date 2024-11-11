@@ -30,20 +30,20 @@ const DeleteModal: React.FC<DeleteModalProps> = ({
     <Dialog
         open={isOpen}
         handler={onClose}
-        className="bg-white rounded-xl max-w-[560px] w-full"
+        className="flex-auto bg-white rounded-xl "
         animate={{
           mount: {scale: 1, y: 0},
           unmount: {scale: 0.9, y: -100},
         }}
-        placeholder={undefined}
-        onPointerEnterCapture={undefined}
-        onPointerLeaveCapture={undefined}
+        placeholder={""}
+        onPointerEnterCapture={() => {}}
+        onPointerLeaveCapture={() => {}}
     >
       <DialogHeader
           className="p-4"
-          placeholder={undefined}
-          onPointerEnterCapture={undefined}
-          onPointerLeaveCapture={undefined}
+          placeholder={""}
+          onPointerEnterCapture={() => {}}
+          onPointerLeaveCapture={() => {}}
       >
         <div className="flex items-center space-x-4">
           <div className={`flex h-12 w-12 flex-shrink-0 items-center 
@@ -64,15 +64,15 @@ const DeleteModal: React.FC<DeleteModalProps> = ({
 
       <DialogBody
           className="px-6 pb-2"
-          placeholder={undefined}
-          onPointerEnterCapture={undefined}
-          onPointerLeaveCapture={undefined}
+          placeholder={""}
+          onPointerEnterCapture={() => {}}
+          onPointerLeaveCapture={() => {}}
       >
         {error ? (
           <p className="text-sm text-red-600">{error}</p>
         ) : (
           <div className="w-full">
-            <p className="text-md text-gray-700 whitespace-nowrap">
+            <p className="text-wrap text-gray-700 whitespace-nowrap">
               Are you sure you want to delete user "{userName}"? This action cannot be undone.
             </p>
           </div>
@@ -81,18 +81,18 @@ const DeleteModal: React.FC<DeleteModalProps> = ({
 
       <DialogFooter
           className="flex justify-end space-x-2 p-4"
-          placeholder={undefined}
-          onPointerEnterCapture={undefined}
-          onPointerLeaveCapture={undefined}
+          placeholder={""}
+          onPointerEnterCapture={() => {}}
+          onPointerLeaveCapture={() => {}}
       >
         <Button
           variant="text"
           color="gray"
           onClick={onClose}
           className="mr-1"
-          placeholder={undefined}
-          onPointerEnterCapture={undefined}
-          onPointerLeaveCapture={undefined}
+          placeholder={""}
+          onPointerEnterCapture={() => {}}
+          onPointerLeaveCapture={() => {}}
         >
           {error ? 'Close' : 'Cancel'}
         </Button>
@@ -103,9 +103,9 @@ const DeleteModal: React.FC<DeleteModalProps> = ({
             disabled={isDeleting}
             color="red"
             className="flex items-center justify-center"
-            placeholder={undefined}
-            onPointerEnterCapture={undefined}
-            onPointerLeaveCapture={undefined}
+            placeholder={""}
+            onPointerEnterCapture={() => {}}
+            onPointerLeaveCapture={() => {}}
           >
             {isDeleting ? (
               <>

@@ -15,8 +15,8 @@ import {
   UserCog
 } from 'lucide-react';
 import { Switch } from "@material-tailwind/react";
-import ChangePasswordModal from './ChangePasswordModal';
-import EditProfileDialog from './EditProfileDialog';
+import ChangePasswordModal from './password/ChangePasswordModal.tsx';
+import EditProfileDialog from './profile/EditProfileDialog.tsx';
 import { useAuth } from '../UseAuth';
 import { useTheme } from '../contexts/ThemeContexts';
 
