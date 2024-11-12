@@ -334,6 +334,7 @@ const PasswordForm: React.FC<PasswordFormProps> = ({
                     {requireCurrentPassword && (
                         <Input
                             type="password"
+                            color={"blue"}
                             label="Current Password"
                             value={currentPassword}
                             onChange={(e) => setCurrentPassword(e.target.value)}
@@ -353,6 +354,7 @@ const PasswordForm: React.FC<PasswordFormProps> = ({
 
                     <Input
                         type="password"
+                        color={"blue"}
                         label="New Password"
                         value={newPassword}
                         onChange={(e) => setNewPassword(e.target.value)}
@@ -371,6 +373,7 @@ const PasswordForm: React.FC<PasswordFormProps> = ({
 
                     <Input
                         type="password"
+                        color={"blue"}
                         label="Confirm New Password"
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}

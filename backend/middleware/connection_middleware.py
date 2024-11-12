@@ -30,7 +30,7 @@ async def track_connection(request: Request, rate_limit: int, rate_window: int, 
             source_ip=request.client.host,
             endpoint=request.url.path,
             limit=rate_limit,
-            window=rate_window  # Pass the rate window to the tracker
+            window=rate_window
         )
 
         if not rate_limit_ok:
@@ -47,8 +47,7 @@ async def track_connection(request: Request, rate_limit: int, rate_window: int, 
             source_ip=request.client.host,
             port=request.client.port,
             is_authenticated=is_authenticated,
-            user_id=user_id,
-            rate_window=rate_window  # Pass the rate window for tracking purposes
+            user_id=user_id  # Removed rate_window parameter
         )
         yield True
     except Exception as e:
@@ -61,7 +60,6 @@ async def track_connection(request: Request, rate_limit: int, rate_window: int, 
                 logger.debug(f"Connection {request_id} duration: {duration:.2f}s")
         except Exception as e:
             logger.error(f"Error removing connection: {str(e)}")
-
 
 class EnhancedConnectionMiddleware(BaseHTTPMiddleware):
     def __init__(

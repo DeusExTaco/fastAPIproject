@@ -24,7 +24,7 @@ const formatErrorMessage = (error: Error): string => {
   const validationError = error as ErrorWithValidation;
 
   if (validationError.msg || validationError.detail) {
-    return validationError.msg || validationError.detail || error.message;
+    return (validationError.msg ?? validationError.detail) ?? error.message;
   }
 
   return error.message || 'An unexpected error occurred';

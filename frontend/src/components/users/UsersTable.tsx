@@ -12,7 +12,7 @@ import { EditUserDialog } from '../users/EditUserDialog';
 import ErrorBoundary from '../errors/ErrorBoundary';
 
 import { deleteUser } from '../../services/usersService';
-import { loadSortSettings, saveSortSettings, sortUsers } from '../../utils/usersUtils';
+import { loadSortSettings, saveSortSettings, sortUsers, loadRefreshSettings } from '../../utils/usersUtils';
 import type { UsersTableProps, DetailedUser, SortSettings } from '../../types/usersTypes';
 
 const UsersTable: React.FC<UsersTableProps> = ({
@@ -23,6 +23,16 @@ const UsersTable: React.FC<UsersTableProps> = ({
   onDeleteUser,
   onAuthError
 }) => {
+  const {
+    users,
+    isUpdating,
+    lastUpdated,
+    fetchUsers,
+    error: userDataError,
+    resetPollingTimer,
+    setIsPolling
+  } = useUserData(initialUsers, token, onAuthError, currentUserId);
+
   // State management
   const [sort, setSort] = useState<SortSettings>(() => loadSortSettings(currentUserId));
   const [currentPage, setCurrentPage] = useState(1);
@@ -33,32 +43,24 @@ const UsersTable: React.FC<UsersTableProps> = ({
   const [isDeleting, setIsDeleting] = useState(false);
   const [editingUserId, setEditingUserId] = useState<number | null>(null);
 
-  const {
-    users,
-    isUpdating,
-    lastUpdated,
-    fetchUsers,
-    error: userDataError,
-    resetPollingTimer,
-    setIsPolling
-  } = useUserData(initialUsers, token, onAuthError);
-
   const itemsPerPage = 10;
 
-  // Initial data fetch and polling setup
+   // Only start polling if enabled in refresh settings
   useEffect(() => {
     if (token) {
-      void fetchUsers(true);
-      setIsPolling(true);
+      const settings = loadRefreshSettings(currentUserId);
+      if (settings.enabled) {
+        setIsPolling(true);
+      }
     }
     return () => setIsPolling(false);
-  }, [token, fetchUsers, setIsPolling]);
+  }, [token, setIsPolling, currentUserId]);
 
   const handleRefresh = useCallback(async () => {
     if (!token) return;
     try {
-      await fetchUsers(true);
-      resetPollingTimer();
+      await fetchUsers(true); // Show loading state for manual refresh
+      resetPollingTimer(); // Reset polling timer after manual refresh
     } catch (error) {
       console.error('Refresh failed:', error);
     }
@@ -87,7 +89,8 @@ const UsersTable: React.FC<UsersTableProps> = ({
       setIsDeleteModalOpen(false);
       setUserToDelete(null);
       onDeleteUser?.(userToDelete.id);
-      await handleRefresh();
+      await fetchUsers(true); // Immediate refresh after delete
+      resetPollingTimer(); // Reset polling timer after operation
     } catch (error) {
       if (error instanceof Error) {
         setDeleteError(error.message === 'AUTH_ERROR' ? 'Authentication failed' :
@@ -97,7 +100,21 @@ const UsersTable: React.FC<UsersTableProps> = ({
     } finally {
       setIsDeleting(false);
     }
-  }, [userToDelete, token, onDeleteUser, handleRefresh, onAuthError]);
+  }, [userToDelete, token, onDeleteUser, fetchUsers, resetPollingTimer, onAuthError]);
+
+  const handleEditClick = useCallback((userId: number) => {
+  // Prevent setting the same ID multiple times
+    setEditingUserId(current => current === userId ? current : userId);
+  }, []);
+
+  const handleEditSuccess = useCallback(async () => {
+    setEditingUserId(null);
+    await handleRefresh();
+  }, [handleRefresh]);
+
+  const handleEditClose = useCallback(() => {
+    setEditingUserId(null);
+  }, []);
 
   // Data processing
   const sortedUsers = sortUsers(users, sort);
@@ -120,17 +137,18 @@ const UsersTable: React.FC<UsersTableProps> = ({
       <>
         {/* Refresh Controls Card */}
         <Card
-            className="w-full bg-white shadow-md"
-            placeholder={""}
-            onPointerEnterCapture={() => {}}
-            onPointerLeaveCapture={() => {}}
+          className="w-full bg-white shadow-md"
+          placeholder={""}
+          onPointerEnterCapture={() => {}}
+          onPointerLeaveCapture={() => {}}
         >
-          <div className="px-6 py-4"> {/* Reduced padding */}
+          <div className="px-6 py-4">
             <TableRefreshControls
               onRefresh={handleRefresh}
               isUpdating={isUpdating}
               lastUpdated={lastUpdated}
               userId={currentUserId}
+              setIsPolling={setIsPolling}
             />
           </div>
         </Card>
@@ -183,7 +201,7 @@ const UsersTable: React.FC<UsersTableProps> = ({
                           key={user.id}
                           user={user}
                           currentUserId={currentUserId}
-                          onEdit={setEditingUserId}
+                          onEdit={handleEditClick}
                           onDelete={handleDeleteClick}
                           index={index}
                         />
@@ -236,15 +254,12 @@ const UsersTable: React.FC<UsersTableProps> = ({
           error={deleteError}
         />
 
-        {editingUserId && (
-          <EditUserDialog
-            open={true}
-            onClose={() => setEditingUserId(null)}
-            onSuccess={async () => {
-              setEditingUserId(null);
-              await handleRefresh();
-            }}
-            userId={editingUserId}
+        {editingUserId !== null && (
+         <EditUserDialog
+            open={editingUserId !== null}
+            onClose={handleEditClose}
+            onSuccess={handleEditSuccess}
+            userId={editingUserId ?? 0}
             token={token}
           />
         )}

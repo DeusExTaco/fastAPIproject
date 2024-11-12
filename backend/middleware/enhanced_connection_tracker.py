@@ -44,7 +44,7 @@ class EnhancedConnectionTracker:
         self.active_connections: Dict[str, ConnectionInfo] = {}
         self.endpoint_stats: Dict[str, int] = defaultdict(int)
         self.ip_stats: Dict[str, Set[str]] = defaultdict(set)
-        self.rate_limits: Dict[str, RateLimitInfo] = defaultdict(RateLimitInfo)
+        self.rate_limits: Dict[str, RateLimitInfo] = defaultdict(lambda: RateLimitInfo())
         self._lock = asyncio.Lock()
         self._cleanup_task = None
 
@@ -83,17 +83,38 @@ class EnhancedConnectionTracker:
                 return duration
             return None
 
-    async def check_rate_limit(self, source_ip: str, endpoint: str,
-                               limit: int = 100) -> bool:
-        """Check if request should be rate limited"""
+    async def check_rate_limit(self, source_ip: str, endpoint: str, **kwargs) -> bool:
+        """
+        Check if request should be rate limited
+
+        Args:
+            source_ip: The IP address of the request
+            endpoint: The endpoint being accessed
+            **kwargs: Additional arguments including:
+                - limit: Maximum number of requests allowed in the window (default: 100)
+                - window: Time window in seconds for rate limiting (default: 60)
+        """
+        limit = kwargs.get('limit', 100)
+        window = kwargs.get('window', 60)
+
         async with self._lock:
-            rate_limit_info = self.rate_limits[f"{source_ip}:{endpoint}"]
+            key = f"{source_ip}:{endpoint}"
+            # Create new RateLimitInfo with specified window if it doesn't exist
+            if key not in self.rate_limits:
+                self.rate_limits[key] = RateLimitInfo(window_seconds=window)
+            elif self.rate_limits[key].window_seconds != window:
+                # Update window if it changed
+                self.rate_limits[key] = RateLimitInfo(window_seconds=window)
+
+            rate_limit_info = self.rate_limits[key]
             if rate_limit_info.get_request_count() >= limit:
                 logger.warning(f"Rate limit exceeded for {source_ip} on {endpoint}")
                 return False
 
             rate_limit_info.add_request()
             return True
+
+
 
     def get_metrics(self) -> Dict:
         """Get comprehensive connection metrics"""

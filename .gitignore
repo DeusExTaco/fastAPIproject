@@ -9,7 +9,7 @@ alembic
 ./frontend/dist
 ./frontend/dist-ssr
 *.local
-package-lock.json
+./frontend/package-lock.json
 node_modules
 dist
 dist-ssr

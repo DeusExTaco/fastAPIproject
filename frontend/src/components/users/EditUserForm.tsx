@@ -1,6 +1,7 @@
-import React, { ChangeEvent, FormEvent, useEffect, useState } from 'react';
+import React, { ChangeEvent, FormEvent, useEffect, useState, useRef } from 'react';
 import { Option, Select, Button, Input } from "@material-tailwind/react";
 import { AlertTriangle } from 'lucide-react';
+import { userService } from '../../services/usersService';
 
 type UserStatus = 'ACTIVE' | 'INACTIVE' | 'PENDING';
 type Role = 'ADMIN' | 'USER' | 'MODERATOR';
@@ -50,46 +51,7 @@ const parseUserData = (data: any): UserData => {
   };
 };
 
-const fetchUserData = async (userId: number, token: string): Promise<UserData> => {
-  const response = await fetch(`http://localhost:8000/api/users/${userId}`, {
-    method: 'GET',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-  });
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(data.detail || 'Failed to fetch user data');
-  }
-
-  return parseUserData(data);
-};
-
-const updateUserData = async (
-  userId: number,
-  token: string,
-  updateData: Omit<UserData, 'roles'> & { roles: Role[] }
-): Promise<void> => {
-  const response = await fetch(`http://localhost:8000/api/users/${userId}`, {
-    method: 'PUT',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(updateData),
-  });
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(data.detail || 'Failed to update user');
-  }
-};
-
-export const EditUserForm: React.FC<EditUserProps> = ({
+export const EditUserForm: React.FC<EditUserProps> = React.memo(({
   userId,
   onClose,
   onSuccess,
@@ -99,26 +61,40 @@ export const EditUserForm: React.FC<EditUserProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [roleError, setRoleError] = useState<string | null>(null);
   const [userData, setUserData] = useState<UserData>(INITIAL_USER_DATA);
+  const mounted = useRef(true);
 
   useEffect(() => {
-    const loadUserData = async () => {
-      try {
-        if (!token) {
-          setError('Authentication token missing');
-          return;
-        }
+    mounted.current = true;
 
-        const data = await fetchUserData(userId, token);
-        setUserData(data);
-        setError(null);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'An unexpected error occurred');
-      } finally {
+    const loadUserData = async () => {
+      if (!token) {
+        setError('Authentication token missing');
         setLoading(false);
+        return;
+      }
+
+      try {
+        const data = await userService.fetchUserById(userId, token);
+        if (mounted.current) {
+          setUserData(parseUserData(data));
+          setError(null);
+        }
+      } catch (err) {
+        if (mounted.current) {
+          setError(err instanceof Error ? err.message : 'An unexpected error occurred');
+        }
+      } finally {
+        if (mounted.current) {
+          setLoading(false);
+        }
       }
     };
 
     void loadUserData();
+
+    return () => {
+      mounted.current = false;
+    };
   }, [userId, token]);
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -155,12 +131,12 @@ export const EditUserForm: React.FC<EditUserProps> = ({
       return;
     }
 
-    try {
-      if (!token) {
-        setError('Authentication token missing');
-        return;
-      }
+    if (!token) {
+      setError('Authentication token missing');
+      return;
+    }
 
+    try {
       const updateData = {
         first_name: userData.first_name,
         last_name: userData.last_name,
@@ -170,7 +146,7 @@ export const EditUserForm: React.FC<EditUserProps> = ({
         user_name: userData.user_name
       };
 
-      await updateUserData(userId, token, updateData);
+      await userService.updateUser(userId, token, updateData);
       onSuccess();
       onClose();
     } catch (err) {
@@ -251,9 +227,9 @@ export const EditUserForm: React.FC<EditUserProps> = ({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mt-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <span className="block text-sm font-medium text-gray-700 mb-2">
               Roles
-            </label>
+            </span>
             {roleError && (
               <p className="text-sm text-red-600 mb-2">{roleError}</p>
             )}
@@ -319,4 +295,6 @@ export const EditUserForm: React.FC<EditUserProps> = ({
       </form>
     </div>
   );
-};
+});
+
+EditUserForm.displayName = 'EditUserForm';

@@ -6,7 +6,7 @@ interface HomeProps {
   onLogin: (userId: number, username: string, roles: string[], token: string) => void;
 }
 
-function Home({ initialLoginOpen = false, onLogin }: HomeProps) {
+function Home({ initialLoginOpen = false, onLogin }: Readonly<HomeProps>) {
   const [isLoginOpen, setIsLoginOpen] = useState(initialLoginOpen);
 
   const handleOpenLogin = () => setIsLoginOpen(true);

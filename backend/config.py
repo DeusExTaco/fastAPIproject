@@ -2,19 +2,20 @@
 from functools import lru_cache
 from typing import List, Literal
 import os
-from pydantic import EmailStr, Field, field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
 
-class Settings(BaseSettings):
+import pydantic_settings
+from pydantic import EmailStr, Field, field_validator
+
+class Settings(pydantic_settings.BaseSettings):
     # Environment
     ENVIRONMENT: Literal["development", "staging", "production"]
     DEBUG: bool = Field(default=False, description="Debug mode flag")
 
     # API Settings
     API_VERSION: str = Field(default="1.0.0", description="API version")
-    PROJECT_NAME: str = Field(default="User Authentication API", description="Project name")
+    PROJECT_NAME: str = Field(default="FastAPI Base", description="Project name")
     PROJECT_DESCRIPTION: str = Field(
-        default="API for user authentication and management"
+        default="API for for authentication and user management", description="Project description"
     )
 
     # Server Settings
@@ -53,7 +54,7 @@ class Settings(BaseSettings):
     INITIAL_PASSWORD: str
 
     # Model config using SettingsConfigDict
-    model_config = SettingsConfigDict(
+    model_config = pydantic_settings.SettingsConfigDict(
         env_file="../.env",
         case_sensitive=True
     )

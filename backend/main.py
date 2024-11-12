@@ -6,7 +6,6 @@ from typing import Any
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import inspect
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -17,6 +16,7 @@ from middleware.performance import record_performance_metrics
 from middleware.enhanced_connection_tracker import connection_tracker
 from middleware.connection_middleware import EnhancedConnectionMiddleware
 from middleware.db import DatabaseMiddleware
+from middleware.cors import setup_cors
 from models.performance import ServerPerformance
 from workers.performance_worker import PerformanceMonitor
 from routes.auth_routes import router as auth_router
@@ -138,23 +138,7 @@ class ErrorHandlingMiddleware(BaseHTTPMiddleware):
 
 
 # Configure CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.cors_origins_list,
-    allow_credentials=settings.CORS_CREDENTIALS,
-    allow_methods=settings.cors_methods_list,
-    allow_headers=settings.cors_headers_list,
-    expose_headers=[
-        "X-Active-Connections",
-        "X-Endpoint-Connections",
-        "X-Total-Unique-IPs",
-        "X-RateLimit-Limit",
-        "X-RateLimit-Remaining",
-        "X-RateLimit-Reset",
-        *settings.cors_headers_list
-    ],
-    max_age=3600
-)
+setup_cors(app)
 
 # Add middleware in correct order - order is important!
 # 1. Error handling should be first to catch all errors
@@ -197,16 +181,16 @@ app.include_router(
 app.include_router(
     profile_router,
     prefix="/api",
-    tags=["user-profile"]
+    tags=["User Profile"]
 )
 
 app.include_router(
     preferences_router,
     prefix="/api",
-    tags=["user-preferences"]
+    tags=["User Preferences"]
 )
 
-@app.get("/api/health")
+@app.get("/api/health", tags=["Health"])
 async def health_check():
     """
     Enhanced health check endpoint that includes connection metrics
@@ -228,7 +212,7 @@ async def health_check():
 
 
 # Rate limiting info endpoint
-@app.get("/api/rate-limit-info")
+@app.get("/api/rate-limit-info", tags=["Rate Limit Info"])
 async def rate_limit_info(request: Request):
     """
     Endpoint to check current rate limit status for the requesting IP

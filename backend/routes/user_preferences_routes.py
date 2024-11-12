@@ -13,7 +13,7 @@ from schemas.user_preferences import (
 )
 
 logger = logging.getLogger(__name__)
-router = APIRouter(tags=["user-preferences"])
+router = APIRouter()
 
 
 def object_as_dict(obj):

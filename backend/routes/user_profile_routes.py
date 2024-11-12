@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 # Test log message on module import
 logger.info("User profile routes module loaded")
 
-router = APIRouter(tags=["user-profile"])
+router = APIRouter()
 
 def object_as_dict(obj):
     """Convert SQLAlchemy object to dictionary"""

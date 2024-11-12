@@ -15,18 +15,21 @@ from schemas.user import (
     UserListResponse
 )
 
+logger = logging.getLogger(__name__)
+
 userNFError = "User not found"
 
-router = APIRouter(tags=["users"])
+router = APIRouter()
 
 
-@router.get("/", response_model=List[UserListResponse])
+@router.get("", response_model=List[UserListResponse])
 async def get_all_users(
         current_user: User = Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
     check_admin(current_user)
     user_service = UserService(db)
+    logger.info(f"Current user: {current_user}")
     return user_service.get_all_users()
 
 
@@ -45,7 +48,7 @@ def get_user(
 
 
 # routes/user_routes.py
-@router.post("/", response_model=UserResponse)
+@router.post("", response_model=UserResponse)
 async def create_user(
         user_data: UserCreate,
         background_tasks: BackgroundTasks,

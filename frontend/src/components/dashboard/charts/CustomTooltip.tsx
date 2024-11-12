@@ -46,7 +46,7 @@ export const CustomTooltip: React.FC<CustomTooltipProps> = ({
             </span>
             <span className="font-medium" style={{ color: entry.color }}>
               {formatter(entry.value)}
-              {entry.unit || ''}
+              {entry.unit ?? ''}
             </span>
           </div>
         ))}

@@ -88,7 +88,7 @@ function AdminDashboard({ user }: Readonly<AdminDashboardProps>) {
       setLoading(true);
       setError(null);
 
-      const response = await fetch('http://localhost:8000/api/users/', {
+      const response = await fetch('http://localhost:8000/api/users', {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,

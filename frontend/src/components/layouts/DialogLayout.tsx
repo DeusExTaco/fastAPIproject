@@ -5,9 +5,9 @@ import {
   DialogHeader,
   DialogBody,
   DialogFooter,
+  IconButton
 } from "@material-tailwind/react";
 import { X } from 'lucide-react';
-import { IconButton } from "@material-tailwind/react";
 
 interface DialogLayoutProps {
   open: boolean;

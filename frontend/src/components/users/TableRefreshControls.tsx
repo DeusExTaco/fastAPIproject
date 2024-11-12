@@ -18,11 +18,16 @@ const REFRESH_INTERVALS = [
   { value: "30", label: "30 minutes" },
 ];
 
-const TableRefreshControls: React.FC<TableRefreshProps> = ({
+interface ExtendedTableRefreshProps extends TableRefreshProps {
+  setIsPolling: (isPolling: boolean) => void;
+}
+
+const TableRefreshControls: React.FC<ExtendedTableRefreshProps> = ({
   onRefresh,
   isUpdating,
   lastUpdated,
-  userId
+  userId,
+  setIsPolling
 }) => {
   const [showSettings, setShowSettings] = useState(false);
   const [refreshSettings, setRefreshSettings] = useState(() =>
@@ -35,6 +40,11 @@ const TableRefreshControls: React.FC<TableRefreshProps> = ({
     left: '0px',
     transform: 'none'
   });
+
+  // Initialize polling based on saved settings
+  useEffect(() => {
+    setIsPolling(refreshSettings.enabled);
+  }, [setIsPolling, refreshSettings.enabled]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -56,8 +66,7 @@ const TableRefreshControls: React.FC<TableRefreshProps> = ({
           let width, left, transform;
 
           if (screenWidth < 768) {
-            // For mobile, use available width minus padding
-            width = Math.min(400, parentRect.width - 32); // 32px accounts for container padding
+            width = Math.min(400, parentRect.width - 32);
             left = '50%';
             transform = 'translateX(-50%)';
           } else {
@@ -81,11 +90,20 @@ const TableRefreshControls: React.FC<TableRefreshProps> = ({
   }, [showSettings]);
 
   const handleSettingsUpdate = (updates: Partial<typeof refreshSettings>) => {
-    setRefreshSettings(current => {
-      const updatedSettings = { ...current, ...updates };
-      saveRefreshSettings(userId, updatedSettings);
-      return updatedSettings;
-    });
+    const updatedSettings = { ...refreshSettings, ...updates };
+    setRefreshSettings(updatedSettings);
+    saveRefreshSettings(userId, updatedSettings);
+
+    // Update polling state when auto-refresh is toggled
+    if ('enabled' in updates) {
+      setIsPolling(updates.enabled ?? false);
+    }
+  };
+
+  const handleResetSettings = () => {
+    clearRefreshSettings(userId);
+    setRefreshSettings(DEFAULT_REFRESH_SETTINGS);
+    setIsPolling(DEFAULT_REFRESH_SETTINGS.enabled);
   };
 
   return (
@@ -186,10 +204,7 @@ const TableRefreshControls: React.FC<TableRefreshProps> = ({
                       Settings are saved automatically
                     </span>
                     <button
-                      onClick={() => {
-                        clearRefreshSettings(userId);
-                        setRefreshSettings(DEFAULT_REFRESH_SETTINGS);
-                    }}
+                      onClick={handleResetSettings}
                       className="text-xs text-red-600 hover:text-red-700"
                     >
                       Reset to Default

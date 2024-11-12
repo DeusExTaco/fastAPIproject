@@ -1,160 +1,162 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { DetailedUser } from '../types/usersTypes';
-import { fetchUsers } from '../services/usersService';
+import { loadRefreshSettings } from '../utils/usersUtils';
+
+const API_URL = 'http://localhost:8000/api';
 
 interface UseUserDataReturn {
   users: DetailedUser[];
-  isPolling: boolean;
-  setIsPolling: (value: boolean) => void;
   isUpdating: boolean;
   lastUpdated: string | null;
   error: string | null;
-  fetchUsers: (force?: boolean) => Promise<void>;
+  fetchUsers: (showLoading?: boolean) => Promise<void>;
   resetPollingTimer: () => void;
+  setIsPolling: (isPolling: boolean) => void;
 }
-
-const POLLING_INTERVAL = 30000; // 30 seconds
-const MIN_FETCH_INTERVAL = 2000; // 2 seconds minimum between manual fetches
 
 export const useUserData = (
   initialUsers: DetailedUser[],
-  token: string | null,
-  onAuthError: () => void
+  token: string,
+  onAuthError: () => void,
+  currentUserId?: number
 ): UseUserDataReturn => {
-  const [users, setUsers] = useState<DetailedUser[]>(initialUsers || []);
-  const [isPolling, setIsPolling] = useState(false);
+  // State management
+  const [users, setUsers] = useState<DetailedUser[]>(initialUsers);
   const [isUpdating, setIsUpdating] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isPolling, setIsPolling] = useState(false);
 
-  const isMountedRef = useRef(true);
-  const lastFetchTimeRef = useRef<number>(0);
-  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const tokenRef = useRef(token);
+  // Refs for cleanup and polling
+  const pollingTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
-  // Keep token ref in sync
-  useEffect(() => {
-    tokenRef.current = token;
-  }, [token]);
+  // Fetch users function
+  const fetchUsers = useCallback(async (showLoading = true) => {
+    // Cancel any existing request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
 
-  const updateUsers = useCallback(async () => {
-    const currentToken = tokenRef.current;
-    if (!currentToken || !isMountedRef.current) return;
+    // Create new abort controller for this request
+    abortControllerRef.current = new AbortController();
+
+    if (showLoading) {
+      setIsUpdating(true);
+    }
 
     try {
-      const data = await fetchUsers(currentToken);
+      const response = await fetch(`${API_URL}/users`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        signal: abortControllerRef.current.signal
+      });
 
-      if (!isMountedRef.current) return;
+      if (!response.ok) {
+        if (response.status === 401) {
+          onAuthError();
+          throw new Error('AUTH_ERROR');
+        }
+        throw new Error('Failed to fetch users');
+      }
 
+      const data = await response.json();
       setUsers(data);
-      setLastUpdated(new Date().toUTCString());
+      setLastUpdated(new Date().toISOString());
       setError(null);
     } catch (error) {
-      if (!isMountedRef.current) return;
-
-      if (error instanceof Error) {
+      // Only set error if it's not an abort error
+      if (error instanceof Error && error.name !== 'AbortError') {
+        setError(error.message);
         if (error.message === 'AUTH_ERROR') {
           onAuthError();
-          return;
         }
-        setError(error.message);
-      } else {
-        setError('Failed to update users');
       }
-      console.error('Error updating users:', error);
-    }
-  }, [onAuthError]);
-
-  const fetchUsersData = useCallback(async (force: boolean = false) => {
-    const currentToken = tokenRef.current;
-    if (!currentToken) return;
-    if (!isMountedRef.current) return;
-
-    const now = Date.now();
-    if (!force && now - lastFetchTimeRef.current < MIN_FETCH_INTERVAL) {
-      return;
-    }
-
-    lastFetchTimeRef.current = now;
-    setIsUpdating(true);
-
-    try {
-      await updateUsers();
     } finally {
-      if (isMountedRef.current) {
+      if (showLoading) {
         setIsUpdating(false);
       }
     }
-  }, [updateUsers]);
+  }, [token, onAuthError]);
 
-  const resetPollingTimer = useCallback(() => {
-    if (pollingIntervalRef.current) {
-      clearInterval(pollingIntervalRef.current);
-      pollingIntervalRef.current = null;
+  // Start polling function
+  const startPolling = useCallback(() => {
+    if (!currentUserId) return;
+
+    const settings = loadRefreshSettings(currentUserId);
+    if (settings.enabled && settings.interval) {
+      // Clear existing timer if any
+      if (pollingTimerRef.current) {
+        clearInterval(pollingTimerRef.current);
+      }
+
+      // Set new timer
+      pollingTimerRef.current = setInterval(() => {
+        void fetchUsers(false); // Don't show loading state for polling updates
+      }, settings.interval * 60 * 1000); // Convert minutes to milliseconds
     }
+  }, [fetchUsers, currentUserId]);
 
-    if (isPolling && tokenRef.current) {
-      pollingIntervalRef.current = setInterval(() => {
-        if (document.visibilityState === 'visible') {
-          void fetchUsersData(false);
-        }
-      }, POLLING_INTERVAL);
+  // Stop polling function
+  const stopPolling = useCallback(() => {
+    if (pollingTimerRef.current) {
+      clearInterval(pollingTimerRef.current);
+      pollingTimerRef.current = null;
     }
-  }, [isPolling, fetchUsersData]);
-
-  // Set up initial fetch and polling
-  useEffect(() => {
-    void fetchUsersData(true);
-
-    return () => {
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-        pollingIntervalRef.current = null;
-      }
-    };
-  }, [fetchUsersData]);
-
-  // Handle polling state changes
-  useEffect(() => {
-    resetPollingTimer();
-    return () => {
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-        pollingIntervalRef.current = null;
-      }
-    };
-  }, [isPolling, resetPollingTimer]);
-
-  // Handle visibility change
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && isPolling) {
-        void fetchUsersData(true);
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, [isPolling, fetchUsersData]);
-
-  // Handle unmount
-  useEffect(() => {
-    isMountedRef.current = true;
-    return () => {
-      isMountedRef.current = false;
-    };
   }, []);
+
+  // Reset polling timer
+  const resetPollingTimer = useCallback(() => {
+    stopPolling();
+    if (isPolling) {
+      startPolling();
+    }
+  }, [stopPolling, startPolling, isPolling]);
+
+  // Effect to handle polling state changes
+  useEffect(() => {
+    if (isPolling) {
+      startPolling();
+    } else {
+      stopPolling();
+    }
+
+    return () => {
+      stopPolling();
+      // Cleanup any pending requests
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, [isPolling, startPolling, stopPolling]);
+
+  // Effect to set initial polling state based on saved settings
+  useEffect(() => {
+    if (currentUserId) {
+      const settings = loadRefreshSettings(currentUserId);
+      setIsPolling(settings.enabled);
+    }
+  }, [currentUserId]);
+
+  // Cleanup effect
+  useEffect(() => {
+    return () => {
+      stopPolling();
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, [stopPolling]);
 
   return {
     users,
-    isPolling,
-    setIsPolling,
     isUpdating,
     lastUpdated,
     error,
-    fetchUsers: fetchUsersData,
-    resetPollingTimer
+    fetchUsers,
+    resetPollingTimer,
+    setIsPolling
   };
 };

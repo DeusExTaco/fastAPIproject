@@ -41,12 +41,14 @@ class User(Base):
     # Store last 5 passwords as JSON
     last_passwords = Column(JSON, default=list)
 
+    cascade = "all, delete-orphan"
+
     # Existing relationships
-    profile = relationship("UserProfile", back_populates="user", uselist=False, cascade="all, delete-orphan")
-    addresses = relationship("UserAddress", back_populates="user", cascade="all, delete-orphan")
+    profile = relationship("UserProfile", back_populates="user", uselist=False, cascade=cascade)
+    addresses = relationship("UserAddress", back_populates="user", cascade=cascade)
 
     # Add new preferences relationship
-    preferences = relationship("UserPreferences", back_populates="user", uselist=False, cascade="all, delete-orphan")
+    preferences = relationship("UserPreferences", back_populates="user", uselist=False, cascade=cascade)
 
     def to_dict(self):
         """Convert user object to dictionary for API responses"""

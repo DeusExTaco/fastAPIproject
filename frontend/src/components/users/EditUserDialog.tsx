@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback, useState, useRef, useEffect } from 'react';
 import {
   Dialog,
   DialogHeader,
@@ -35,21 +35,47 @@ const ErrorFallback: React.FC<{ error: Error; reset: () => void }> = ({
   </div>
 );
 
-export const EditUserDialog: React.FC<EditUserDialogProps> = ({
+export const EditUserDialog = React.memo(({
   open,
   onClose,
   onSuccess,
   userId,
   token
-}) => {
+}: EditUserDialogProps) => {
+  const mountedRef = useRef(false);
+  const [isReady, setIsReady] = useState(false);
+
+  useEffect(() => {
+    if (!mountedRef.current && open) {
+      mountedRef.current = true;
+      setIsReady(true);
+    }
+    return () => {
+      mountedRef.current = false;
+      setIsReady(false);
+    };
+  }, [open]);
+
+  const handleClose = useCallback(() => {
+    setIsReady(false);
+    onClose();
+  }, [onClose]);
+
+  const handleSuccess = useCallback(() => {
+    setIsReady(false);
+    onSuccess();
+  }, [onSuccess]);
+
+  if (!open) return null;
+
   return (
     <Dialog
       open={open}
-      handler={onClose}
+      handler={handleClose}
       animate={{
-          mount: { scale: 1, opacity: 1, transition: { duration: 0.15 } },
-          unmount: { scale: 0.9, opacity: 0, transition: { duration: 0.1 } },
-        }}
+        mount: { scale: 1, opacity: 1, transition: { duration: 0.15 } },
+        unmount: { scale: 0.9, opacity: 0, transition: { duration: 0.1 } },
+      }}
       className="flex-auto"
       placeholder=""
       onPointerEnterCapture={() => {}}
@@ -60,28 +86,33 @@ export const EditUserDialog: React.FC<EditUserDialogProps> = ({
       }}
     >
       <DialogHeader
-          className="text-2xl font-bold text-gray-800 p-4 border-b"
-          placeholder=""
-          onPointerEnterCapture={() => {}}
-          onPointerLeaveCapture={() => {}}
+        className="text-2xl font-bold text-gray-800 p-4 border-b"
+        placeholder=""
+        onPointerEnterCapture={() => {}}
+        onPointerLeaveCapture={() => {}}
       >
         Edit User
       </DialogHeader>
       <DialogBody
-          className="p-4"
-          placeholder=""
-          onPointerEnterCapture={() => {}}
-          onPointerLeaveCapture={() => {}}
+        className="p-4"
+        placeholder=""
+        onPointerEnterCapture={() => {}}
+        onPointerLeaveCapture={() => {}}
       >
         <ErrorBoundary fallbackComponent={ErrorFallback}>
-          <EditUserForm
-            userId={userId}
-            onClose={onClose}
-            onSuccess={onSuccess}
-            token={token}
-          />
+          {isReady && (
+            <EditUserForm
+              key={userId}
+              userId={userId}
+              onClose={handleClose}
+              onSuccess={handleSuccess}
+              token={token}
+            />
+          )}
         </ErrorBoundary>
       </DialogBody>
     </Dialog>
   );
-};
+});
+
+EditUserDialog.displayName = 'EditUserDialog';

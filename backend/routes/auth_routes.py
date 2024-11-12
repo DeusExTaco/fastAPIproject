@@ -17,7 +17,7 @@ from schemas.user import (
     PasswordRecoveryInitRequest
 )
 
-router = APIRouter(tags=["authentication"])
+router = APIRouter()
 
 def get_user_or_404(db: Session, user_id: Optional[int] = None, email: Optional[str] = None,
                     reset_token: Optional[str] = None):
@@ -65,16 +65,6 @@ async def login(user_login: UserLogin, response: Response, db: Session = Depends
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=str(e)
         )
-
-
-@router.options("/login")
-async def login_options():
-    response = Response()
-    response.headers["Access-Control-Allow-Origin"] = "http://localhost:5173"
-    response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
-    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, Accept"
-    response.headers["Access-Control-Allow-Credentials"] = "true"
-    return response
 
 @router.post("/password-recovery")
 async def password_recovery(
