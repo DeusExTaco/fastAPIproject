@@ -24,6 +24,17 @@ interface EditProfileDialogProps {
   token: string;
 }
 
+// Type for the profile service update payload
+type ProfileUpdatePayload = {
+  social_media: NonNullable<Profile['social_media']>;
+};
+
+const sanitizeWebsiteUrl = (website: string | undefined): string | undefined => {
+  if (!website) return undefined;
+  const hasProtocol = RegExp(/^https?:\/\//).exec(website);
+  return hasProtocol ? website : `https://${website}`;
+};
+
 const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
   open,
   onClose,
@@ -31,26 +42,21 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
   token
 }) => {
   const [activeTab, setActiveTab] = useState<'profile' | 'addresses' | 'socials'>('profile');
-  const [profile, setProfile] = useState<Profile>({});
+  const [profile, setProfile] = useState<Profile>({ social_media: {} });
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<ProfileServiceError | null>(null);
   const [isNavExpanded, setIsNavExpanded] = useState(window.innerWidth >= 1024);
 
-  // Handle responsive navigation
   useEffect(() => {
     const handleResize = () => {
       const width = window.innerWidth;
-      if (width >= 1024) {
-        setIsNavExpanded(true);
-      } else {
-        setIsNavExpanded(false);
-      }
+      setIsNavExpanded(width >= 1024);
     };
 
     window.addEventListener('resize', handleResize);
-    handleResize(); // Initial check
+    handleResize();
 
     return () => window.removeEventListener('resize', handleResize);
   }, []);
@@ -71,7 +77,7 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
 
         if (!mounted) return;
 
-        setProfile(profileData || {});
+        setProfile(profileData || { social_media: {} });
         setAddresses(addressesData || []);
       } catch (err) {
         if (!mounted) return;
@@ -167,7 +173,7 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
       setProfile(prev => ({
         ...prev,
         social_media: {
-          ...prev.social_media,
+          ...(prev.social_media || {}),
           [field]: value
         }
       }));
@@ -184,20 +190,27 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
       setError(null);
       setSaving(true);
 
-      const sanitizedProfile = {
-        ...profile,
-        website: profile.website ? (RegExp(/^https?:\/\//).exec(profile.website) ? profile.website : `https://${profile.website}`) : null,
-        date_of_birth: profile.date_of_birth ?? null,
-        phone: profile.phone ?? null,
-        bio: profile.bio ?? null,
-        gender: profile.gender ?? null,
+      // Create a complete profile update payload with all fields
+      const updatedProfileData: Partial<Profile> = {
+        website: sanitizeWebsiteUrl(profile.website),
+        date_of_birth: profile.date_of_birth,
+        phone: profile.phone,
+        bio: profile.bio,
+        gender: profile.gender,
         social_media: profile.social_media || {},
         privacy_settings: profile.privacy_settings || {}
       };
 
-      const updatedProfile = await profileService.updateProfile(userId, token, sanitizedProfile);
+      // Update the profile
+      const updatedProfile = await profileService.updateProfile(userId, token, {
+        ...updatedProfileData,
+        social_media: updatedProfileData.social_media || {} // Ensure social_media is included
+      });
+
+      // Update local state with the response
       setProfile(updatedProfile);
 
+      // Handle address updates if needed
       if (addresses.length > 0) {
         const addressPromises = addresses.map(address => {
           const { id, user_id, ...addressData } = address;
@@ -231,14 +244,19 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
       setError(null);
       setSaving(true);
 
-      const socialMediaUpdate = {
+      const updatePayload: ProfileUpdatePayload = {
         social_media: profile.social_media || {}
       };
 
-      const updatedProfile = await profileService.updateProfile(userId, token, socialMediaUpdate);
-      setProfile(prev => ({
-        ...prev,
-        social_media: updatedProfile.social_media
+      const updatedProfile = await profileService.updateProfile(
+        userId,
+        token,
+        updatePayload
+      );
+
+      setProfile(prevProfile => ({
+        ...prevProfile,
+        social_media: updatedProfile.social_media || {}
       }));
 
       onClose();
@@ -317,7 +335,6 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
       )}
     >
       <div className="flex h-full">
-        {/* Left Navigation */}
         <div
           className={`
             bg-white dark:bg-gray-800 
@@ -334,7 +351,6 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
                 className="w-full text-left group"
               >
                 <div className="h-14 flex items-center relative">
-                  {/* Collapsed state */}
                   {!isNavExpanded && (
                     <div className="absolute left-0 w-12 -ml-3 flex justify-center">
                       <div
@@ -351,7 +367,6 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
                     </div>
                   )}
 
-                  {/* Expanded state */}
                   {isNavExpanded && (
                     <div
                       className={`
@@ -385,7 +400,6 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
           </nav>
         </div>
 
-        {/* Scrollable Form Container */}
         <div className="flex-1 overflow-hidden">
           {loading ? (
             <div className="h-full flex justify-center items-center">

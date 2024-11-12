@@ -1,6 +1,4 @@
-// src/contexts/NavigationContext.tsx
-
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useMemo, useCallback } from 'react';
 
 interface NavigationContextType {
   isNavExpanded: boolean;
@@ -17,42 +15,44 @@ const NavigationContext = createContext<NavigationContextType>({
 export const useNavigation = () => useContext(NavigationContext);
 
 export const NavigationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [isNavExpanded, setIsNavExpanded] = useState(false);
+  const [isNavExpanded, setIsNavExpanded] = useState(true);
   const [canExpandNav, setCanExpandNav] = useState(true);
 
   useEffect(() => {
     const handleResize = () => {
       const width = window.innerWidth;
-      const height = window.innerHeight;
 
-      // Check if screen is smaller than 768x768
-      if (width < 768 || height < 768) {
+      if (width < 640) {
         setIsNavExpanded(false);
         setCanExpandNav(false);
+      } else if (width < 1024) {
+        setCanExpandNav(true);
+        setIsNavExpanded(false);
       } else {
         setCanExpandNav(true);
-        setIsNavExpanded(true); // Expand by default on larger screens
+        setIsNavExpanded(true);
       }
     };
 
-    // Initial check
     handleResize();
-
-    // Add event listener
     window.addEventListener('resize', handleResize);
-
-    // Cleanup
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const toggleNav = () => {
+  const toggleNav = useCallback(() => {
     if (canExpandNav) {
       setIsNavExpanded(prev => !prev);
     }
-  };
+  }, [canExpandNav]);
+
+  const value = useMemo(() => ({
+    isNavExpanded,
+    toggleNav,
+    canExpandNav
+  }), [isNavExpanded, toggleNav, canExpandNav]);
 
   return (
-    <NavigationContext.Provider value={{ isNavExpanded, toggleNav, canExpandNav }}>
+    <NavigationContext.Provider value={value}>
       {children}
     </NavigationContext.Provider>
   );

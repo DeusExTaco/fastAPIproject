@@ -113,7 +113,6 @@ class UserCreate(UserBase):
                 "last_name": "Doe",
                 "user_name": "johndoe",
                 "email": sampleEmail,
-                "password": "****************",
                 "roles": ["USER"],
                 "status": "PENDING"
             }

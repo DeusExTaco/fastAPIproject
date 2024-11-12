@@ -76,12 +76,3 @@ export interface SystemStatusProps {
 export interface ConnectionDetailsProps {
   data: PerformanceSummary['last_24h'];
 }
-
-export interface RefreshControlsProps {
-  lastRefresh: Date | null;
-  onRefresh: () => void;
-  isLoading: boolean;
-  refreshSettings: RefreshSettings;
-  onUpdateSettings: (settings: Partial<RefreshSettings>) => void;
-  onResetSettings: () => void;
-}

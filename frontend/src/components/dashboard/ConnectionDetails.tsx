@@ -8,6 +8,22 @@ interface MetricCardProps {
   trend?: number;
 }
 
+const getFormattedValue = (value: number | string): string => {
+  return typeof value === 'number' ? value.toLocaleString() : value;
+};
+
+const getTrendColor = (trend: number): string => {
+  if (trend > 0) return 'text-green-600';
+  if (trend < 0) return 'text-red-600';
+  return 'text-gray-600';
+};
+
+const getTrendArrow = (trend: number): string => {
+  if (trend > 0) return '↑';
+  if (trend < 0) return '↓';
+  return '→';
+};
+
 const MetricCard: React.FC<MetricCardProps> = ({
   title,
   value,
@@ -17,7 +33,7 @@ const MetricCard: React.FC<MetricCardProps> = ({
   <div className="bg-indigo-50 p-4 rounded-lg">
     <p className="text-sm font-medium text-indigo-800">{title}</p>
     <p className="text-2xl font-bold text-indigo-900">
-      {typeof value === 'number' ? value.toLocaleString() : value}
+      {getFormattedValue(value)}
     </p>
     {(subtitle || trend !== undefined) && (
       <div className="mt-1 flex items-center space-x-2">
@@ -25,11 +41,8 @@ const MetricCard: React.FC<MetricCardProps> = ({
           <span className="text-xs text-indigo-600">{subtitle}</span>
         )}
         {trend !== undefined && (
-          <span className={`text-xs ${
-            trend > 0 ? 'text-green-600' : 
-            trend < 0 ? 'text-red-600' : 'text-gray-600'
-          }`}>
-            {trend > 0 ? '↑' : trend < 0 ? '↓' : '→'}
+          <span className={`text-xs ${getTrendColor(trend)}`}>
+            {getTrendArrow(trend)}
             {Math.abs(trend).toFixed(1)}%
           </span>
         )}
@@ -37,6 +50,7 @@ const MetricCard: React.FC<MetricCardProps> = ({
     )}
   </div>
 );
+
 
 export const ConnectionDetails: React.FC<ConnectionDetailsProps> = ({ data }) => {
   // Calculate authentication rate

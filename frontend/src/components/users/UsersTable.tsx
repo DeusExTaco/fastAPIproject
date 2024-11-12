@@ -256,7 +256,7 @@ const UsersTable: React.FC<UsersTableProps> = ({
 
         {editingUserId !== null && (
          <EditUserDialog
-            open={editingUserId !== null}
+            open={true}
             onClose={handleEditClose}
             onSuccess={handleEditSuccess}
             userId={editingUserId ?? 0}
