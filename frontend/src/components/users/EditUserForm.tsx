@@ -23,13 +23,26 @@ interface EditUserProps {
 }
 
 const AVAILABLE_ROLES: Role[] = ['ADMIN', 'USER', 'MODERATOR'];
+const DEFAULT_STATUS: UserStatus = 'PENDING';
 const INITIAL_USER_DATA: UserData = {
   first_name: '',
   last_name: '',
   email: '',
   roles: new Set<Role>(),
-  status: 'PENDING',
+  status: DEFAULT_STATUS,
   user_name: ''
+};
+
+const parseUserStatus = (status: unknown): UserStatus => {
+  if (typeof status === 'object' && status !== null && 'value' in status) {
+    return status.value as UserStatus;
+  }
+
+  if (typeof status === 'string') {
+    return status.toUpperCase() as UserStatus;
+  }
+
+  return DEFAULT_STATUS;
 };
 
 const parseUserData = (data: any): UserData => {
@@ -37,16 +50,12 @@ const parseUserData = (data: any): UserData => {
     ? data.roles
     : (data.roles || '').split(',').map((role: string) => role.trim().toUpperCase() as Role);
 
-  const status: UserStatus = typeof data.status === 'object' && data.status !== null && 'value' in data.status
-    ? data.status.value
-    : (typeof data.status === 'string' ? data.status.toUpperCase() as UserStatus : 'PENDING');
-
   return {
     first_name: data.first_name || '',
     last_name: data.last_name || '',
     email: data.email || '',
     roles: new Set<Role>(rolesArray),
-    status: status,
+    status: parseUserStatus(data.status),
     user_name: data.user_name || ''
   };
 };

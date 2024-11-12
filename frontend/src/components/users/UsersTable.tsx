@@ -15,6 +15,20 @@ import { deleteUser } from '../../services/usersService';
 import { loadSortSettings, saveSortSettings, sortUsers, loadRefreshSettings } from '../../utils/usersUtils';
 import type { UsersTableProps, DetailedUser, SortSettings } from '../../types/usersTypes';
 
+class UserOperationError extends Error {
+  constructor(message: string, public code?: string) {
+    super(message);
+    this.name = 'UserOperationError';
+  }
+}
+
+const getNextSortDirection = (currentField: string, newField: string, currentDirection: 'asc' | 'desc'): 'asc' | 'desc' => {
+  if (currentField !== newField) {
+    return 'asc';
+  }
+  return currentDirection === 'asc' ? 'desc' : 'asc';
+};
+
 const UsersTable: React.FC<UsersTableProps> = ({
   users: initialUsers,
   currentUserId,
@@ -39,13 +53,11 @@ const UsersTable: React.FC<UsersTableProps> = ({
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<{ id: number; userName: string } | null>(null);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [editingUserId, setEditingUserId] = useState<number | null>(null);
 
   const itemsPerPage = 10;
 
-   // Only start polling if enabled in refresh settings
   useEffect(() => {
     if (token) {
       const settings = loadRefreshSettings(currentUserId);
@@ -57,20 +69,20 @@ const UsersTable: React.FC<UsersTableProps> = ({
   }, [token, setIsPolling, currentUserId]);
 
   const handleRefresh = useCallback(async () => {
-    if (!token) return;
-    try {
-      await fetchUsers(true); // Show loading state for manual refresh
-      resetPollingTimer(); // Reset polling timer after manual refresh
-    } catch (error) {
-      console.error('Refresh failed:', error);
+    if (!token) {
+      throw new UserOperationError('No authentication token available');
     }
+    await fetchUsers(true);
+    resetPollingTimer();
   }, [token, fetchUsers, resetPollingTimer]);
 
   const handleSort = useCallback((field: keyof DetailedUser) => {
+    const newDirection = getNextSortDirection(sort.field, field, sort.direction);
     const newSettings = {
       field,
-      direction: field === sort.field ? (sort.direction === 'asc' ? 'desc' : 'asc') : 'asc'
+      direction: newDirection
     } as const;
+
     setSort(newSettings);
     saveSortSettings(newSettings, currentUserId);
   }, [sort.field, sort.direction, currentUserId]);
@@ -78,32 +90,34 @@ const UsersTable: React.FC<UsersTableProps> = ({
   const handleDeleteClick = useCallback((userId: number, userName: string) => {
     setUserToDelete({ id: userId, userName });
     setIsDeleteModalOpen(true);
-    setDeleteError(null);
   }, []);
 
   const handleConfirmDelete = useCallback(async () => {
-    if (!userToDelete || !token) return;
+    if (!userToDelete || !token) {
+      throw new UserOperationError('Missing required data for delete operation');
+    }
+
     setIsDeleting(true);
+
     try {
       await deleteUser(userToDelete.id, token);
       setIsDeleteModalOpen(false);
       setUserToDelete(null);
       onDeleteUser?.(userToDelete.id);
-      await fetchUsers(true); // Immediate refresh after delete
-      resetPollingTimer(); // Reset polling timer after operation
+      await fetchUsers(true);
+      resetPollingTimer();
     } catch (error) {
-      if (error instanceof Error) {
-        setDeleteError(error.message === 'AUTH_ERROR' ? 'Authentication failed' :
-                      error.message === 'PERMISSION_ERROR' ? 'Permission denied' : error.message);
-        if (error.message === 'AUTH_ERROR') onAuthError();
+      // Only handle the auth error callback, let other errors propagate
+      if (error instanceof Error && error.message === 'AUTH_ERROR') {
+        onAuthError();
       }
+      throw error; // Re-throw to be caught by error boundary
     } finally {
       setIsDeleting(false);
     }
   }, [userToDelete, token, onDeleteUser, fetchUsers, resetPollingTimer, onAuthError]);
 
   const handleEditClick = useCallback((userId: number) => {
-  // Prevent setting the same ID multiple times
     setEditingUserId(current => current === userId ? current : userId);
   }, []);
 
@@ -135,10 +149,9 @@ const UsersTable: React.FC<UsersTableProps> = ({
   return (
     <ErrorBoundary>
       <>
-        {/* Refresh Controls Card */}
         <Card
           className="w-full bg-white shadow-md"
-          placeholder={""}
+          placeholder=""
           onPointerEnterCapture={() => {}}
           onPointerLeaveCapture={() => {}}
         >
@@ -153,28 +166,25 @@ const UsersTable: React.FC<UsersTableProps> = ({
           </div>
         </Card>
 
-        {/* Main Users Management Card */}
         <Card
-            className="w-full bg-white shadow-md mt-6"
-            placeholder={""}
-            onPointerEnterCapture={() => {}}
-            onPointerLeaveCapture={() => {}}
+          className="w-full bg-white shadow-md mt-6"
+          placeholder=""
+          onPointerEnterCapture={() => {}}
+          onPointerLeaveCapture={() => {}}
         >
           <div className="p-6">
-            {/* Error Alert */}
             {userDataError && (
               <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4">
                 <p className="text-red-700">{userDataError}</p>
               </div>
             )}
 
-            {/* Create User Button */}
             <div className="mb-6">
               <Button
                 onClick={() => setIsCreateModalOpen(true)}
                 className="flex items-center gap-2"
                 color="blue"
-                placeholder={""}
+                placeholder=""
                 onPointerEnterCapture={() => {}}
                 onPointerLeaveCapture={() => {}}
               >
@@ -183,7 +193,6 @@ const UsersTable: React.FC<UsersTableProps> = ({
               </Button>
             </div>
 
-            {/* Users Table */}
             <div className={`mb-6 transition-opacity duration-200 ${
               isRefreshing || isUpdating ? 'opacity-50' : 'opacity-100'
             }`}>
@@ -219,7 +228,6 @@ const UsersTable: React.FC<UsersTableProps> = ({
               </div>
             </div>
 
-            {/* Pagination */}
             <div>
               <Pagination
                 currentPage={currentPage}
@@ -231,7 +239,6 @@ const UsersTable: React.FC<UsersTableProps> = ({
           </div>
         </Card>
 
-        {/* Modals */}
         <AddUserDialog
           open={isCreateModalOpen}
           onClose={() => setIsCreateModalOpen(false)}
@@ -246,12 +253,11 @@ const UsersTable: React.FC<UsersTableProps> = ({
           onClose={() => {
             setIsDeleteModalOpen(false);
             setUserToDelete(null);
-            setDeleteError(null);
           }}
           onConfirm={handleConfirmDelete}
           userName={userToDelete?.userName ?? ''}
           isDeleting={isDeleting}
-          error={deleteError}
+          error={null} // Remove local error handling
         />
 
         {editingUserId !== null && (
@@ -259,7 +265,7 @@ const UsersTable: React.FC<UsersTableProps> = ({
             open={true}
             onClose={handleEditClose}
             onSuccess={handleEditSuccess}
-            userId={editingUserId ?? 0}
+            userId={editingUserId}
             token={token}
           />
         )}

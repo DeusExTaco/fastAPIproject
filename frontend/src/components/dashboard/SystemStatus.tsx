@@ -12,13 +12,59 @@ interface StatusIndicatorProps {
   icon: React.ComponentType<any>;
 }
 
+interface StatusColor {
+  color: string;
+  text: string;
+}
+
+interface MetricDisplayProps {
+  label: string;
+  value: number;
+  unit: string;
+  threshold: {
+    warning: number;
+    critical: number;
+  };
+  formatValue?: (value: number) => string;
+}
+
+const getStatusColor = (value: number, { warning, critical }: { warning: number; critical: number }): string => {
+  if (value > critical) return 'text-red-600';
+  if (value > warning) return 'text-yellow-600';
+  return 'text-green-600';
+};
+
+const formatMetricValue = (value: number, format: (v: number) => string = v => v.toString()): string => {
+  return format(value);
+};
+
+const MetricDisplay: React.FC<MetricDisplayProps> = ({
+  label,
+  value,
+  unit,
+  threshold,
+  formatValue = (v: number) => v.toFixed(2)
+}) => {
+  const colorClass = getStatusColor(value, threshold);
+  const formattedValue = formatMetricValue(value, formatValue);
+
+  return (
+    <div className="text-sm">
+      <span className="text-gray-500">{label}:</span>
+      <span className={`ml-2 font-medium ${colorClass}`}>
+        {formattedValue}{unit}
+      </span>
+    </div>
+  );
+};
+
 const StatusIndicator: React.FC<StatusIndicatorProps> = ({
   label,
   value,
   threshold,
   icon: Icon
 }) => {
-  const getStatus = () => {
+  const getStatus = (): StatusColor => {
     if (value > threshold.critical) return { color: 'red', text: 'Critical' };
     if (value > threshold.warning) return { color: 'yellow', text: 'Warning' };
     return { color: 'green', text: 'Normal' };
@@ -67,24 +113,20 @@ export const SystemStatus: React.FC<SystemStatusProps> = ({ data }) => {
 
       <div className="mt-4 pt-4 border-t border-gray-100">
         <div className="grid grid-cols-2 gap-4">
-          <div className="text-sm">
-            <span className="text-gray-500">Error Rate:</span>
-            <span className={`ml-2 font-medium ${
-              data.error_rate > 5 ? 'text-red-600' : 
-              data.error_rate > 1 ? 'text-yellow-600' : 'text-green-600'
-            }`}>
-              {data.error_rate.toFixed(2)}%
-            </span>
-          </div>
-          <div className="text-sm">
-            <span className="text-gray-500">Response Time:</span>
-            <span className={`ml-2 font-medium ${
-              data.avg_response_time > 1000 ? 'text-red-600' :
-              data.avg_response_time > 500 ? 'text-yellow-600' : 'text-green-600'
-            }`}>
-              {data.avg_response_time.toFixed(0)}ms
-            </span>
-          </div>
+          <MetricDisplay
+            label="Error Rate"
+            value={data.error_rate}
+            unit="%"
+            threshold={{ warning: 1, critical: 5 }}
+            formatValue={(v) => v.toFixed(2)}
+          />
+          <MetricDisplay
+            label="Response Time"
+            value={data.avg_response_time}
+            unit="ms"
+            threshold={{ warning: 500, critical: 1000 }}
+            formatValue={(v) => v.toFixed(0)}
+          />
         </div>
       </div>
     </div>

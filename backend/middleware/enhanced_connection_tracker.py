@@ -38,6 +38,15 @@ class RateLimitInfo:
         self.clean_old_requests(datetime.now(UTC))
         return len(self.requests)
 
+    def would_exceed_limit(self, limit: int) -> bool:
+        """Check if adding a request would exceed the limit"""
+        return self.get_request_count() >= limit
+
+
+def _get_rate_limit_key(source_ip: str, endpoint: str) -> str:
+    """Generate a consistent key for rate limiting"""
+    return f"{source_ip}:{endpoint}"
+
 
 class EnhancedConnectionTracker:
     def __init__(self):
@@ -53,9 +62,25 @@ class EnhancedConnectionTracker:
         """Maintain compatibility with existing code"""
         return len(self.active_connections)
 
-    async def add_connection(self, request_id: str, endpoint: str, source_ip: str,
-                             port: int, is_authenticated: bool = False,
-                             user_id: Optional[int] = None):
+    async def _get_or_create_rate_limit_info(
+        self,
+        key: str,
+        window: int
+    ) -> RateLimitInfo:
+        """Get or create a RateLimitInfo instance with the specified window"""
+        if key not in self.rate_limits or self.rate_limits[key].window_seconds != window:
+            self.rate_limits[key] = RateLimitInfo(window_seconds=window)
+        return self.rate_limits[key]
+
+    async def add_connection(
+        self,
+        request_id: str,
+        endpoint: str,
+        source_ip: str,
+        port: int,
+        is_authenticated: bool = False,
+        user_id: Optional[int] = None
+    ):
         """Enhanced version of add_connection with more metadata"""
         async with self._lock:
             self.active_connections[request_id] = ConnectionInfo(
@@ -98,23 +123,15 @@ class EnhancedConnectionTracker:
         window = kwargs.get('window', 60)
 
         async with self._lock:
-            key = f"{source_ip}:{endpoint}"
-            # Create new RateLimitInfo with specified window if it doesn't exist
-            if key not in self.rate_limits:
-                self.rate_limits[key] = RateLimitInfo(window_seconds=window)
-            elif self.rate_limits[key].window_seconds != window:
-                # Update window if it changed
-                self.rate_limits[key] = RateLimitInfo(window_seconds=window)
+            key = _get_rate_limit_key(source_ip, endpoint)
+            rate_limit_info = await self._get_or_create_rate_limit_info(key, window)
 
-            rate_limit_info = self.rate_limits[key]
-            if rate_limit_info.get_request_count() >= limit:
+            if rate_limit_info.would_exceed_limit(limit):
                 logger.warning(f"Rate limit exceeded for {source_ip} on {endpoint}")
                 return False
 
             rate_limit_info.add_request()
             return True
-
-
 
     def get_metrics(self) -> Dict:
         """Get comprehensive connection metrics"""

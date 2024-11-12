@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useMemo, useCallback } from 'react';
 import { useAuth } from '../UseAuth';
 import { userPreferencesService } from '../services/userPreferences';
 
@@ -46,27 +46,38 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   }, [darkMode]);
 
-  const toggleDarkMode = async () => {
+  const toggleDarkMode = useCallback(() => {
     if (!user || !token) return;
 
     const newDarkMode = !darkMode;
     // Optimistically update UI
     setDarkMode(newDarkMode);
 
-    try {
-      // Persist to backend
-      await userPreferencesService.updateUserPreferences(user.id, {
-        dark_mode: newDarkMode,
-      }, token);
-    } catch (error) {
-      // Revert on failure
-      console.error('Failed to update dark mode preference:', error);
-      setDarkMode(!newDarkMode);
-    }
-  };
+    // Handle the async operation
+    void (async () => {
+      try {
+        // Persist to backend
+        await userPreferencesService.updateUserPreferences(
+          user.id,
+          { dark_mode: newDarkMode },
+          token
+        );
+      } catch (error) {
+        // Revert on failure
+        console.error('Failed to update dark mode preference:', error);
+        setDarkMode(!newDarkMode);
+      }
+    })();
+  }, [darkMode, user, token]);
+
+  const contextValue = useMemo(() => ({
+    darkMode,
+    toggleDarkMode,
+    isLoading
+  }), [darkMode, toggleDarkMode, isLoading]);
 
   return (
-    <ThemeContext.Provider value={{ darkMode, toggleDarkMode, isLoading }}>
+    <ThemeContext.Provider value={contextValue}>
       {children}
     </ThemeContext.Provider>
   );
