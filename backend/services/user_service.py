@@ -1,13 +1,15 @@
-
+# services/user_service.py
 import logging
 import secrets
 from datetime import datetime, timedelta, UTC
 from typing import Optional, Dict, Any, List
 
 from fastapi import HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from models import User, UserRole
+from models.user import User, UserRole
+from models.user_profile import UserProfile
 from services.password_service import PasswordService
 
 
@@ -29,10 +31,31 @@ class UserService:
         return self.db.query(User).filter(User.reset_token == token).first()
 
     def get_all_users(self) -> List[User]:
-        return self.db.query(User).all()
+        stmt = select(User)
+        result = self.db.execute(stmt)
+        return list(result.scalars().all())
+
+    # Rest of the file stays exactly the same...
+    def _create_default_profile(self, user_id: int) -> None:
+        """Create a default profile for a new user"""
+        default_profile = UserProfile(
+            user_id=user_id,
+            privacy_settings={
+                "profile_visibility": "private",
+                "show_email": "no",
+                "show_phone": "no"
+            },
+            notification_preferences={
+                "email": False,
+                "push": False,
+                "sms": False
+            },
+            social_media={}
+        )
+        self.db.add(default_profile)
 
     def create_user(self, user_data: dict) -> User:
-        """Create a new user with proper role handling"""
+        """Create a new user with profile and proper role handling"""
         try:
             logging.info(f"Creating user with data: {user_data}")
 
@@ -65,15 +88,34 @@ class UserService:
             })
 
             logging.info(f"Processed user data: {user_data}")
+
+            # Create user instance but don't commit yet
             new_user = User(**user_data)
-
             self.db.add(new_user)
-            self.db.commit()
-            self.db.refresh(new_user)
+            self.db.flush()  # This assigns an ID to new_user without committing
 
-            logging.info(f"Successfully created user: {new_user.user_name}")
-            return new_user
+            try:
+                # Create the associated profile
+                self._create_default_profile(new_user.id)
+                logging.info(f"Created default profile for user: {new_user.user_name}")
 
+                # Commit both user and profile
+                self.db.commit()
+                self.db.refresh(new_user)
+
+                logging.info(f"Successfully created user and profile: {new_user.user_name}")
+                return new_user
+
+            except Exception as profile_error:
+                self.db.rollback()
+                logging.error(f"Error creating user profile: {str(profile_error)}")
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Error creating user profile"
+                )
+
+        except HTTPException:
+            raise
         except Exception as e:
             self.db.rollback()
             logging.error(f"Error creating user: {str(e)}", exc_info=True)

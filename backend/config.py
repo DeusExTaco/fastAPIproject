@@ -8,7 +8,7 @@ from pydantic import EmailStr, Field, field_validator
 
 class Settings(pydantic_settings.BaseSettings):
     # Environment
-    ENVIRONMENT: Literal["development", "staging", "production"]
+    ENVIRONMENT: Literal["development", "staging", "production"] = "development"
     DEBUG: bool = Field(default=False, description="Debug mode flag")
 
     # API Settings

@@ -1,5 +1,4 @@
-// src/components/EditProfileDialog.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Button } from "@material-tailwind/react";
 import {
   UserCircle,
@@ -24,262 +23,258 @@ interface EditProfileDialogProps {
   token: string;
 }
 
-// Type for the profile service update payload
-type ProfileUpdatePayload = {
-  social_media: NonNullable<Profile['social_media']>;
+interface ProfileData {
+  profile: Profile;
+  addresses: Address[];
+  originalProfile: Profile;
+  originalAddresses: Address[];
+}
+
+type Tab = 'profile' | 'addresses' | 'socials';
+type EditableProfileFields = 'date_of_birth' | 'gender' | 'phone' | 'website' | 'bio' | 'privacy_settings' | 'notification_preferences';
+
+// Custom hooks to separate concerns
+const useProfileData = (userId: number, token: string, open: boolean) => {
+  const [data, setData] = useState({
+    profile: { social_media: {} } as Profile,
+    addresses: [] as Address[],
+    originalProfile: { social_media: {} } as Profile,
+    originalAddresses: [] as Address[]
+  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<ProfileServiceError | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+
+    let mounted = true;
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        console.log('userId', userId, 'token', token)
+
+        const [profileData, addressesData] = await Promise.all([
+          profileService.getProfile(userId, token),
+          profileService.getAddresses(userId, token),
+        ]);
+
+        console.log('profileData', profileData)
+
+        if (!mounted) return;
+
+        const initialProfile = profileData || { social_media: {} };
+        const initialAddresses = addressesData || [];
+
+        setData({
+          profile: initialProfile,
+          addresses: initialAddresses,
+          originalProfile: JSON.parse(JSON.stringify(initialProfile)),
+          originalAddresses: JSON.parse(JSON.stringify(initialAddresses))
+        });
+      } catch (err) {
+        if (!mounted) return;
+        console.error('Error fetching data:', err);
+        setError(err instanceof ProfileServiceError ? err :
+          new ProfileServiceError('Failed to load profile data', { originalError: err }));
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+
+    void fetchData();
+    return () => { mounted = false; };
+  }, [userId, token, open]);
+
+  return { ...data, loading, error, setData, setError };
 };
 
-const sanitizeWebsiteUrl = (website: string | undefined): string | undefined => {
-  if (!website) return undefined;
-  const hasProtocol = RegExp(/^https?:\/\//).exec(website);
-  return hasProtocol ? website : `https://${website}`;
-};
+// Separate component for navigation menu
+const NavigationMenu = React.memo(({ activeTab, setActiveTab, isNavExpanded }: {
+  activeTab: Tab;
+  setActiveTab: (tab: Tab) => void;
+  isNavExpanded: boolean;
+}) => {
+  const menuItems = useMemo(() => [
+    { id: 'profile' as Tab, icon: UserCircle, label: 'Profile' },
+    { id: 'addresses' as Tab, icon: MapPin, label: 'Addresses' },
+    { id: 'socials' as Tab, icon: Share2, label: 'Social Media' },
+  ], []);
 
+  return (
+    <nav className="mt-4 px-3">
+      {menuItems.map((item) => (
+        <button
+          key={item.id}
+          onClick={() => setActiveTab(item.id)}
+          className="w-full text-left group"
+        >
+          <div className="h-14 flex items-center relative">
+            {!isNavExpanded && (
+              <div className="absolute left-0 w-16 -ml-3 flex justify-center">
+                <div className={`p-2 rounded-lg transition-colors duration-150
+                  ${activeTab === item.id
+                    ? 'bg-gray-100 dark:bg-gray-700 text-blue-600 dark:text-blue-400'
+                    : 'text-gray-700 dark:text-gray-200 group-hover:bg-gray-100 dark:group-hover:bg-gray-700'}`}>
+                  <item.icon className="w-5 h-5"/>
+                </div>
+              </div>
+            )}
+
+            {isNavExpanded && (
+              <div className={`w-full flex items-center rounded-lg transition-colors duration-150 relative
+                ${activeTab === item.id
+                  ? 'bg-gray-100 dark:bg-gray-700 text-blue-600 dark:text-blue-400'
+                  : 'text-gray-700 dark:text-gray-200 group-hover:bg-gray-100 dark:group-hover:bg-gray-700'}`}>
+                {activeTab === item.id && (
+                  <div className="absolute left-0 top-0 bottom-0 w-1 rounded-l-lg
+                    bg-blue-600 dark:bg-blue-400 transition-colors duration-150"/>
+                )}
+                <div className="w-16 flex justify-center p-2">
+                  <item.icon className="w-5 h-5"/>
+                </div>
+                <div className={`transition-[width,opacity] duration-200 ease-out
+                  overflow-hidden whitespace-nowrap delay-[0ms,100ms]
+                  ${isNavExpanded ? 'w-40 opacity-100' : 'w-0 opacity-0'}`}>
+                  {item.label}
+                </div>
+              </div>
+            )}
+          </div>
+        </button>
+      ))}
+    </nav>
+  );
+});
+
+// Main component
 const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
   open,
   onClose,
   userId,
   token
 }) => {
-  const [activeTab, setActiveTab] = useState<'profile' | 'addresses' | 'socials'>('profile');
-  const [profile, setProfile] = useState<Profile>({ social_media: {} });
-  const [addresses, setAddresses] = useState<Address[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<ProfileServiceError | null>(null);
+  const [activeTab, setActiveTab] = useState<Tab>('profile');
   const [isNavExpanded, setIsNavExpanded] = useState(window.innerWidth >= 1024);
+  const [saving, setSaving] = useState(false);
 
+  // Reset activeTab to 'profile' whenever the dialog opens
   useEffect(() => {
-    const handleResize = () => {
-      const width = window.innerWidth;
-      setIsNavExpanded(width >= 1024);
-    };
+    if (open) {
+      setActiveTab('profile');
+    }
+  }, [open]);
 
+
+
+  const {
+    profile,
+    addresses,
+    originalProfile,
+    originalAddresses,
+    loading,
+    error,
+    setData,
+    setError
+  } = useProfileData(userId, token, open);
+
+  // Memoized change detection
+  const changes = useMemo(() => ({
+    profile: JSON.stringify(profile) !== JSON.stringify(originalProfile),
+    addresses: JSON.stringify(addresses) !== JSON.stringify(originalAddresses),
+    social: JSON.stringify(profile.social_media) !== JSON.stringify(originalProfile.social_media)
+  }), [profile, addresses, originalProfile, originalAddresses]);
+
+  // Handlers
+  const handleProfileChange = useCallback((field: EditableProfileFields, value: any) => {
+    setData(prev => ({
+      ...prev,
+      profile: { ...prev.profile, [field]: value }
+    }));
+  }, []);
+
+  const handleAddressChange = useCallback((index: number, field: keyof Address, value: string) => {
+    setData(prev => ({
+      ...prev,
+      addresses: prev.addresses.map((addr, i) =>
+        i === index ? { ...addr, [field]: value } : addr
+      )
+    }));
+  }, []);
+
+  const handleSocialMediaChange = useCallback((field: string, value: string) => {
+    setData(prev => ({
+      ...prev,
+      profile: {
+        ...prev.profile,
+        social_media: { ...(prev.profile.social_media || {}), [field]: value }
+      }
+    }));
+  }, []);
+
+  const handleSave = useCallback(async () => {
+    try {
+      setSaving(true);
+      setError(null);
+
+      const updates = [];
+
+      if (changes.profile || changes.social) {
+        updates.push(profileService.updateProfile(userId, token, {
+          ...profile,
+          social_media: profile.social_media || {}
+        }));
+      }
+
+      if (changes.addresses) {
+        // Handle address updates
+        const addressUpdates = addresses.map(address => {
+          const original = originalAddresses.find(a => a.id === address.id);
+          if (!original) {
+            return profileService.createAddress(userId, token, address);
+          }
+          if (JSON.stringify(address) !== JSON.stringify(original)) {
+            return profileService.updateAddress(userId, address.id!, token, address);
+          }
+          return null;
+        }).filter(Boolean);
+
+        // Handle deletions
+        const deletions = originalAddresses
+          .filter(original => !addresses.some(addr => addr.id === original.id))
+          .map(address => profileService.deleteAddress(userId, address.id!, token));
+
+        updates.push(...addressUpdates, ...deletions);
+      }
+
+      await Promise.all(updates);
+      onClose();
+    } catch (err) {
+      setError(err instanceof ProfileServiceError ? err :
+        new ProfileServiceError('Failed to save changes', { originalError: err }));
+    } finally {
+      setSaving(false);
+    }
+  }, [userId, token, profile, addresses, originalAddresses, changes, onClose]);
+
+  // Resize handler
+  useEffect(() => {
+    const handleResize = () => setIsNavExpanded(window.innerWidth >= 1024);
     window.addEventListener('resize', handleResize);
-    handleResize();
-
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  useEffect(() => {
-    let mounted = true;
 
-    const fetchData = async () => {
-      if (!open) return;
-
-      try {
-        setLoading(true);
-        setError(null);
-        const [profileData, addressesData] = await Promise.all([
-          profileService.getProfile(userId, token),
-          profileService.getAddresses(userId, token)
-        ]);
-
-        if (!mounted) return;
-
-        setProfile(profileData || { social_media: {} });
-        setAddresses(addressesData || []);
-      } catch (err) {
-        if (!mounted) return;
-
-        console.error('Error fetching data:', err);
-        if (err instanceof ProfileServiceError) {
-          setError(err);
-        } else {
-          setError(new ProfileServiceError(
-            'Failed to load profile data',
-            { originalError: err }
-          ));
-        }
-      } finally {
-        if (mounted) {
-          setLoading(false);
-        }
-      }
+  const handleAddressRemoval = (
+    index: number,
+    data: ProfileData
+  ): ProfileData => {
+    return {
+      ...data,
+      addresses: data.addresses.filter((_, i: number) => i !== index)
     };
-
-    if (open) {
-      setActiveTab('profile');
-      void fetchData();
-    }
-
-    return () => {
-      mounted = false;
-    };
-  }, [userId, token, open]);
-
-  const handleProfileChange = (field: keyof Profile, value: any) => {
-    try {
-      setProfile(prev => ({
-        ...prev,
-        [field]: value
-      }));
-    } catch (err) {
-      setError(new ProfileServiceError(
-        'Failed to update profile field',
-        { field, value, error: err }
-      ));
-    }
   };
 
-  const handleAddressChange = (index: number, field: keyof Address, value: string) => {
-    try {
-      setAddresses(prev => {
-        const newAddresses = [...prev];
-        newAddresses[index] = {
-          ...newAddresses[index],
-          [field]: value
-        };
-        return newAddresses;
-      });
-    } catch (err) {
-      setError(new ProfileServiceError(
-        'Failed to update address field',
-        { index, field, value, error: err }
-      ));
-    }
-  };
-
-  const handleAddAddress = () => {
-    try {
-      setAddresses(prev => [...prev, {
-        street: '',
-        city: '',
-        state: '',
-        country: '',
-        postal_code: ''
-      }]);
-    } catch (err) {
-      setError(new ProfileServiceError(
-        'Failed to add new address',
-        { error: err }
-      ));
-    }
-  };
-
-  const handleRemoveAddress = (index: number) => {
-    try {
-      setAddresses(prev => prev.filter((_, i) => i !== index));
-    } catch (err) {
-      setError(new ProfileServiceError(
-        'Failed to remove address',
-        { index, error: err }
-      ));
-    }
-  };
-
-  const handleSocialMediaChange = (field: string, value: string) => {
-    try {
-      setProfile(prev => ({
-        ...prev,
-        social_media: {
-          ...(prev.social_media || {}),
-          [field]: value
-        }
-      }));
-    } catch (err) {
-      setError(new ProfileServiceError(
-        'Failed to update social media field',
-        { field, value, error: err }
-      ));
-    }
-  };
-
-  const handleSave = async () => {
-    try {
-      setError(null);
-      setSaving(true);
-
-      // Create a complete profile update payload with all fields
-      const updatedProfileData: Partial<Profile> = {
-        website: sanitizeWebsiteUrl(profile.website),
-        date_of_birth: profile.date_of_birth,
-        phone: profile.phone,
-        bio: profile.bio,
-        gender: profile.gender,
-        social_media: profile.social_media || {},
-        privacy_settings: profile.privacy_settings || {}
-      };
-
-      // Update the profile
-      const updatedProfile = await profileService.updateProfile(userId, token, {
-        ...updatedProfileData,
-        social_media: updatedProfileData.social_media || {} // Ensure social_media is included
-      });
-
-      // Update local state with the response
-      setProfile(updatedProfile);
-
-      // Handle address updates if needed
-      if (addresses.length > 0) {
-        const addressPromises = addresses.map(address => {
-          const { id, user_id, ...addressData } = address;
-          return id
-            ? profileService.updateAddress(userId, id, token, addressData)
-            : profileService.createAddress(userId, token, addressData);
-        });
-
-        const updatedAddresses = await Promise.all(addressPromises);
-        setAddresses(updatedAddresses);
-      }
-
-      onClose();
-    } catch (err) {
-      console.error('Save error:', err);
-      if (err instanceof ProfileServiceError) {
-        setError(err);
-      } else {
-        setError(new ProfileServiceError(
-          'Failed to save profile changes',
-          { originalError: err }
-        ));
-      }
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleSaveSocialMedia = async () => {
-    try {
-      setError(null);
-      setSaving(true);
-
-      const updatePayload: ProfileUpdatePayload = {
-        social_media: profile.social_media || {}
-      };
-
-      const updatedProfile = await profileService.updateProfile(
-        userId,
-        token,
-        updatePayload
-      );
-
-      setProfile(prevProfile => ({
-        ...prevProfile,
-        social_media: updatedProfile.social_media || {}
-      }));
-
-      onClose();
-    } catch (err) {
-      console.error('Social media save error:', err);
-      if (err instanceof ProfileServiceError) {
-        setError(err);
-      } else {
-        setError(new ProfileServiceError(
-          'Failed to save social media changes',
-          { originalError: err }
-        ));
-      }
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const menuItems = [
-    { id: 'profile', icon: UserCircle, label: 'Profile' },
-    { id: 'addresses', icon: MapPin, label: 'Addresses' },
-    { id: 'socials', icon: Share2, label: 'Social Media' },
-  ];
 
   return (
     <DialogLayout
@@ -287,14 +282,14 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
       title="Edit Profile"
       onClose={onClose}
       footer={
-        <>
+        <div className="flex justify-end gap-2">
           <Button
             variant="outlined"
             color="gray"
             size="sm"
             onClick={onClose}
-            className="dark:text-white dark:border-gray-600"
             disabled={saving}
+            className="dark:text-white dark:border-gray-600"
             placeholder={""}
             onPointerEnterCapture={() => {}}
             onPointerLeaveCapture={() => {}}
@@ -304,9 +299,9 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
           <Button
             color="blue"
             size="sm"
-            onClick={activeTab === 'socials' ? handleSaveSocialMedia : handleSave}
+            onClick={handleSave}
+            disabled={saving || !Object.values(changes).some(Boolean)}
             className="dark:text-white flex items-center gap-2"
-            disabled={saving}
             placeholder={""}
             onPointerEnterCapture={() => {}}
             onPointerLeaveCapture={() => {}}
@@ -314,20 +309,16 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
             {saving && <Loader2 className="h-3 w-3 animate-spin" />}
             {saving ? 'Saving...' : 'Save Changes'}
           </Button>
-        </>
+        </div>
       }
       error={error && (
-        <div className="mx-4 mt-4 p-3 bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 text-red-700 dark:text-red-200 text-sm">
+        <div className="mx-4 mt-4 p-3 bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500">
           <div className="flex items-start gap-2">
             <AlertTriangle className="h-4 w-4 mt-0.5" />
-            <div>
+            <div className="text-red-700 dark:text-red-200">
               <p className="font-medium">{error.message}</p>
               {error.details && (
-                <p className="mt-1 text-sm text-red-600 dark:text-red-300">
-                  {typeof error.details === 'string'
-                    ? error.details
-                    : JSON.stringify(error.details, null, 2)}
-                </p>
+                <p className="mt-1 text-sm">{JSON.stringify(error.details)}</p>
               )}
             </div>
           </div>
@@ -335,120 +326,78 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
       )}
     >
       <div className="flex h-full">
-        <div
-          className={`
-            bg-white dark:bg-gray-800 
-            border-r border-gray-200 dark:border-gray-700 
-            flex-shrink-0 transition-[width] duration-200 ease-out
-            ${isNavExpanded ? 'w-48' : 'w-12'}
-          `}
-        >
-          <nav className="mt-4 px-3">
-            {menuItems.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => setActiveTab(item.id as typeof activeTab)}
-                className="w-full text-left group"
-              >
-                <div className="h-14 flex items-center relative">
-                  {!isNavExpanded && (
-                    <div className="absolute left-0 w-12 -ml-3 flex justify-center">
-                      <div
-                        className={`
-                          p-2 rounded-lg transition-colors duration-150
-                          ${activeTab === item.id
-                            ? 'bg-gray-100 dark:bg-gray-700 text-blue-600 dark:text-blue-400'
-                            : 'text-gray-700 dark:text-gray-200 group-hover:bg-gray-100 dark:group-hover:bg-gray-700'
-                          }
-                        `}
-                      >
-                        <item.icon className="w-5 h-5"/>
-                      </div>
-                    </div>
-                  )}
+        <aside className={`
+          bg-white dark:bg-gray-800 
+          border-r border-gray-200 dark:border-gray-700 
+          flex-shrink-0 transition-[width] duration-200 ease-out
+          ${isNavExpanded ? 'w-52' : 'w-16'}
+        `}>
+          <NavigationMenu
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            isNavExpanded={isNavExpanded}
+          />
+        </aside>
 
-                  {isNavExpanded && (
-                    <div
-                      className={`
-                        w-full flex items-center rounded-lg transition-colors duration-150 relative
-                        ${activeTab === item.id
-                          ? 'bg-gray-100 dark:bg-gray-700 text-blue-600 dark:text-blue-400'
-                          : 'text-gray-700 dark:text-gray-200 group-hover:bg-gray-100 dark:group-hover:bg-gray-700'
-                        }
-                      `}
-                    >
-                      {activeTab === item.id && (
-                        <div className="absolute left-0 top-0 bottom-0 w-1 rounded-l-lg bg-blue-600 dark:bg-blue-400" />
-                      )}
-                      <div className="w-12 flex justify-center p-2">
-                        <item.icon className="w-5 h-5"/>
-                      </div>
-                      <div
-                        className={`
-                          transition-[width,opacity] duration-200 ease-out
-                          overflow-hidden whitespace-nowrap delay-[0ms,100ms]
-                          ${isNavExpanded ? 'w-32 opacity-100' : 'w-0 opacity-0'}
-                        `}
-                      >
-                        {item.label}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </button>
-            ))}
-          </nav>
-        </div>
 
-        <div className="flex-1 overflow-hidden">
+        <main className="flex-1 overflow-hidden">
           {loading ? (
             <div className="h-full flex justify-center items-center">
               <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
             </div>
           ) : (
-            <div className="h-full overflow-y-auto px-4">
-              {activeTab === 'profile' && (
-                <ProfileForm
-                  profile={profile}
-                  onChange={handleProfileChange}
-                />
-              )}
-
-              {activeTab === 'addresses' && (
-                <div className="py-4 space-y-4">
-                  {addresses.map((address, index) => (
-                    <AddressForm
-                      key={address.id ?? `address-${index}`}
-                      address={address}
-                      index={index}
-                      onChange={handleAddressChange}
-                      onRemove={handleRemoveAddress}
+              <div className="h-full overflow-y-auto px-4">
+                {activeTab === 'profile' && (
+                    <ProfileForm
+                        profile={profile}
+                        onChange={handleProfileChange}
                     />
-                  ))}
-                  <Button
-                    onClick={handleAddAddress}
-                    variant="outlined"
-                    size="sm"
-                    className="w-full flex items-center justify-center gap-2 dark:border-gray-600 dark:text-gray-200"
-                    placeholder={""}
-                    onPointerEnterCapture={() => {}}
-                    onPointerLeaveCapture={() => {}}
-                  >
-                    <Plus className="h-4 w-4" />
-                    <span>Add Address</span>
-                  </Button>
-                </div>
-              )}
-
-              {activeTab === 'socials' && (
-                <SocialsForm
-                  socialMedia={profile.social_media}
-                  onChange={handleSocialMediaChange}
-                />
-              )}
-            </div>
+                )}
+                {activeTab === 'addresses' && (
+                    <div className="py-4 space-y-4">
+                      {addresses.map((address, index) => (
+                          <AddressForm
+                              key={address.id ?? `address-${index}`}
+                              address={address}
+                              index={index}
+                              onChange={handleAddressChange}
+                              onRemove={() => setData(prev => handleAddressRemoval(index, prev))}
+                          />
+                      ))}
+                      <Button
+                          onClick={() => setData(prev => ({
+                            ...prev,
+                            addresses: [...prev.addresses, {
+                              street: '',
+                              city: '',
+                              state: '',
+                              country: '',
+                              postal_code: ''
+                            }]
+                          }))}
+                          variant="outlined"
+                          size="sm"
+                          className="w-full flex items-center justify-center gap-2"
+                          placeholder={""}
+                          onPointerEnterCapture={() => {
+                          }}
+                          onPointerLeaveCapture={() => {
+                          }}
+                      >
+                        <Plus className="h-4 w-4"/>
+                        Add Address
+                      </Button>
+                    </div>
+                )}
+                {activeTab === 'socials' && (
+                    <SocialsForm
+                        socialMedia={profile.social_media}
+                        onChange={handleSocialMediaChange}
+                    />
+                )}
+              </div>
           )}
-        </div>
+        </main>
       </div>
     </DialogLayout>
   );

@@ -5,6 +5,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import inspect, select
 from sqlalchemy.sql import func
+from sqlalchemy import and_
+
 
 from auth import get_current_user
 from database import get_db
@@ -93,9 +95,11 @@ class CrudOperations:
         self.current_user = current_user
 
     def _get_base_query(self, item_id: Optional[int] = None):
-        stmt = select(self.model).where(self.model.user_id == self.user_id)
+        conditions = [self.model.user_id == self.user_id]
         if item_id is not None:
-            stmt = stmt.where(self.model.id == item_id)
+            conditions.append(self.model.id == item_id)
+
+        stmt = select(self.model).where(and_(*conditions))
         return stmt
 
     async def get(self, item_id: Optional[int] = None) -> Union[List[Dict[str, Any]], Dict[str, Any]]:
