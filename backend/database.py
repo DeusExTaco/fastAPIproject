@@ -111,12 +111,12 @@ def create_initial_admin_user(session):
         # Create associated user profile
         admin_profile = UserProfile(
             user_id=admin_user.id,
-            date_of_birth="",
+            date_of_birth=None,
             gender="prefer_not_to_say",
-            phone="",
-            avatar_url="",
+            phone=None,
+            avatar_url=None,
             bio="System Administrator",
-            website="",
+            website=None,
             social_media={},
             notification_preferences={
                 "email": True,
@@ -134,11 +134,11 @@ def create_initial_admin_user(session):
         # Create default address
         admin_address = UserAddress(
             user_id=admin_user.id,
-            street="",
-            city="",
-            state="",
-            country="",
-            postal_code=""
+            street=None,
+            city=None,
+            state=None,
+            country=None,
+            postal_code=None
         )
         session.add(admin_address)
 

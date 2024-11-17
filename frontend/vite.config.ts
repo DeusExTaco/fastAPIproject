@@ -1,5 +1,3 @@
-// vite.config.ts
-
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react-swc';
 import path from 'path';
@@ -27,18 +25,5 @@ export default defineConfig({
         config: './tailwind.config.js',
       },
     },
-  },
-  worker: {
-    format: 'es',
-    plugins: () => [],
-    rollupOptions: {
-      output: {
-        format: 'es',
-        entryFileNames: '[name].js',
-      },
-    },
-  },
-  build: {
-    target: 'esnext',
   },
 });

@@ -142,15 +142,12 @@ setup_cors(app)
 
 # Add middleware in correct order - order is important!
 # 1. Error handling should be first to catch all errors
-# noinspection PyTypeChecker
 app.add_middleware(ErrorHandlingMiddleware)
 
 # 2. Database middleware to ensure DB session is available
-# noinspection PyTypeChecker
 app.add_middleware(DatabaseMiddleware)
 
 # 3. Enhanced connection tracking with rate limiting
-# noinspection PyTypeChecker
 app.add_middleware(
     EnhancedConnectionMiddleware,
     rate_limit=100,  # Requests per window

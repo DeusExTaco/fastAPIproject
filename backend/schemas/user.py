@@ -37,16 +37,12 @@ def validate_password_strength(password: str) -> str:
 
     return password
 
-
-# noinspection PyMethodParameters
 class NewPasswordValidatorMixin:
     """Mixin class for new password validation"""
     @field_validator('new_password')
     def validate_new_password(cls, v):
         return validate_password_strength(v)
 
-
-# noinspection PyMethodParameters
 class PasswordUpdateRequest(NewPasswordValidatorMixin, BaseModel):
     user_id: Optional[int] = None
     current_password: Optional[str] = None
@@ -74,7 +70,6 @@ class UserBase(BaseModel):
     email: EmailStr
 
 
-# noinspection PyMethodParameters
 class UserCreate(UserBase):
     password: str
     roles: List[Union[UserRole, str]] = Field(default=[UserRole.USER])
@@ -124,8 +119,6 @@ class UserCreate(UserBase):
         }
     )
 
-
-# noinspection PyMethodParameters
 class UserResponse(UserBase):
     id: int
     status: UserStatus
@@ -165,7 +158,6 @@ class UserLogin(BaseModel):
 
 # Add this to your existing schemas.py, keeping all other classes unchanged
 
-# noinspection PyMethodParameters
 class UserUpdateRequest(BaseModel):
     """Schema for updating user details"""
     """Schema for updating user details"""
@@ -221,8 +213,6 @@ class UserUpdateRequest(BaseModel):
         }
     )
 
-
-# noinspection PyMethodParameters
 class UserListResponse(BaseModel):
     id: int
     user_name: str

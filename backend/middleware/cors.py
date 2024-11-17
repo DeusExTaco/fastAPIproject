@@ -4,9 +4,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from config import get_settings
 
+
 def setup_cors(app: FastAPI) -> None:
     """
-    Configure CORS middleware with security best practices and debugging
+    Configure CORS middleware with security best practices
     """
     settings = get_settings()
 
@@ -22,48 +23,39 @@ def setup_cors(app: FastAPI) -> None:
         ]
     )
 
-    # Define security headers - ensure Authorization is included
+    # Define security headers
     security_headers = [
-        "Authorization",           # Keep Authorization at top for visibility
         "Accept",
         "Accept-Language",
         "Content-Type",
         "Content-Length",
         "Accept-Encoding",
+        "Authorization",
         "X-CSRF-Token",
         "X-Requested-With",
-        "Access-Control-Allow-Credentials",  # Add this for credentials support
-        "Access-Control-Allow-Origin",       # Add this for CORS support
+    ]
+
+    # Define exposed headers
+    exposed_headers = [
+        "X-Active-Connections",
+        "X-Endpoint-Connections",
+        "X-Total-Unique-IPs",
+        "X-RateLimit-Limit",
+        "X-RateLimit-Remaining",
+        "X-RateLimit-Reset",
     ]
 
     # Add custom headers from settings if they exist
     if settings.cors_headers_list != ["*"]:
-        security_headers.extend(
-            header for header in settings.cors_headers_list
-            if header not in security_headers
-        )
-
-    # Debug logging in development
-    if settings.is_development():
-        print("CORS Configuration:")
-        print(f"Allowed Origins: {allowed_origins}")
-        print(f"Allowed Headers: {security_headers}")
-        print(f"Credentials Enabled: {settings.CORS_CREDENTIALS}")
+        security_headers.extend(settings.cors_headers_list)
 
     app.add_middleware(
         CORSMiddleware,
         allow_origins=allowed_origins,
-        allow_origin_regex=None,
-        allow_credentials=True,  # Set this to True to allow credentials
+        allow_credentials=settings.CORS_CREDENTIALS,
         allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
         allow_headers=security_headers,
-        expose_headers=[
-            "X-Active-Connections",
-            "X-Endpoint-Connections",
-            "X-Total-Unique-IPs",
-            "X-RateLimit-Limit",
-            "X-RateLimit-Remaining",
-            "X-RateLimit-Reset",
-        ],
+        expose_headers=exposed_headers,
         max_age=3600,
+        allow_origin_regex=None  # Add specific regex pattern if needed
     )

@@ -1,18 +1,7 @@
-// src/types/dashboardTypes.ts
+import { ComponentType } from 'react';
 
-// import React from 'react';
-import { LucideIcon } from 'lucide-react';
-
-// Color variants for components
-export type ColorVariant = 'blue' | 'green' | 'purple' | 'yellow' | 'indigo' | 'pink';
-
-// Base metric interface to reduce duplication
-export interface BaseMetric {
+export interface PerformanceMetric {
   timestamp: string;
-}
-
-// Performance Metrics
-export interface PerformanceMetric extends BaseMetric {
   cpu_usage: number;
   memory_usage: number;
   disk_usage: number;
@@ -22,7 +11,6 @@ export interface PerformanceMetric extends BaseMetric {
   anonymous_connections: number;
 }
 
-// Statistics interfaces
 export interface EndpointStat {
   requests: number;
   avg_duration: number;
@@ -35,24 +23,21 @@ export interface IpStat {
   rate_limited_count: number;
 }
 
-// Summary interfaces
-export interface Last24HSummary {
-  avg_cpu_usage: number;
-  avg_memory_usage: number;
-  avg_response_time: number;
-  error_rate: number;
-  authenticated_connections: number;
-  anonymous_connections: number;
-  unique_ips: number;
-  avg_active_connections: number;
-  max_active_connections: number;
-  total_unique_connections: number;
-  endpoint_stats: Record<string, EndpointStat>;
-  ip_stats: Record<string, IpStat>;
-}
-
 export interface PerformanceSummary {
-  last_24h: Last24HSummary;
+  last_24h: {
+    avg_cpu_usage: number;
+    avg_memory_usage: number;
+    avg_response_time: number;
+    error_rate: number;
+    authenticated_connections: number;
+    anonymous_connections: number;
+    unique_ips: number;
+    avg_active_connections: number;
+    max_active_connections: number;
+    total_unique_connections: number;
+    endpoint_stats: Record<string, EndpointStat>;
+    ip_stats: Record<string, IpStat>;
+  };
 }
 
 export interface PerformanceData {
@@ -60,8 +45,13 @@ export interface PerformanceData {
   summary: PerformanceSummary;
 }
 
-// Chart data interfaces
-export interface ChartDataPoint extends BaseMetric {
+export interface RefreshSettings {
+  enabled: boolean;
+  interval: number;
+}
+
+export interface ChartDataPoint {
+  timestamp: string;
   cpu?: number;
   memory?: number;
   disk?: number;
@@ -71,66 +61,18 @@ export interface ChartDataPoint extends BaseMetric {
   anonymous?: number;
 }
 
-export interface AuthData {
-  name: string;
-  value: number;
-  color: string;
-}
-
-export interface ProcessedEndpointStats {
-  endpoint: string;
-  requests: number;
-  avgDuration: number;
-  authRate: number;
-  timestamp: string;
-}
-
-export interface ProcessedIpStats {
-  ip: string;
-  requests: number;
-  endpoints: number;
-  rateLimited: number;
-}
-
-// Processed data container
-export interface ProcessedData {
-  timeSeriesData: ChartDataPoint[];
-  connectionMetrics: ChartDataPoint[];
-  authData: AuthData[];
-  endpointStats: ProcessedEndpointStats[];
-  ipStats: ProcessedIpStats[];
-  summary: PerformanceSummary;
-}
-
-// Component props interfaces
-export interface RefreshSettings {
-  enabled: boolean;
-  interval: number;
-}
-
 export interface StatCardProps {
   title: string;
   value: string;
   subtext: string;
-  icon: LucideIcon;
-  color: ColorVariant;
-  loading?: boolean;
+  icon: ComponentType<any>;
+  color: string;
 }
 
-export interface BaseComponentProps {
-  loading?: boolean;
-  error?: string | null;
-  className?: string;
+export interface SystemStatusProps {
+  data: PerformanceSummary['last_24h'];
 }
 
-export interface SystemStatusProps extends BaseComponentProps {
-  data: Last24HSummary;
-}
-
-export interface ConnectionDetailsProps extends BaseComponentProps {
-  data: Last24HSummary;
-}
-
-export interface ChartSkeletonProps {
-  height?: string;
+export interface ConnectionDetailsProps {
+  data: PerformanceSummary['last_24h'];
 }

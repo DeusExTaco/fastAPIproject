@@ -119,7 +119,6 @@ class EnhancedConnectionMiddleware(BaseHTTPMiddleware):
 
 
 # For backward compatibility
-# noinspection PyTypeChecker
 async def connection_tracking_middleware(request: Request, call_next):
     """Legacy middleware function for compatibility"""
     middleware = EnhancedConnectionMiddleware(app=None)

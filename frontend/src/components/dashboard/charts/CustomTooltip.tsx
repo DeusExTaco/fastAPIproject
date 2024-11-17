@@ -72,5 +72,3 @@ export const formatters = {
     return `${size.toFixed(1)}${units[unitIndex]}`;
   }
 };
-
-export default CustomTooltip;
