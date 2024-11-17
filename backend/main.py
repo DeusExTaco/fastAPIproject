@@ -25,7 +25,6 @@ from routes.performance_routes import router as performance_router
 from routes.user_profile_routes import router as profile_router
 from routes.user_preferences_routes import router as preferences_router
 
-
 ua = "uvicorn.access"
 
 # Get settings instance
@@ -65,50 +64,62 @@ root_logger.setLevel(getattr(logging, settings.LOG_LEVEL))
 # Application logger
 logger = logging.getLogger(__name__)
 
-
 # Initialize performance monitor
 performance_monitor = PerformanceMonitor(interval=60)
 
 
-# noinspection PyUnusedLocal
 @asynccontextmanager
 async def lifespan(fastapi_app: FastAPI):
     """
     Application lifespan manager handling startup and shutdown tasks
     Now includes enhanced connection tracking and performance monitoring
     """
-    # Start connection tracking cleanup task
-    await connection_tracker.start_cleanup_task()
+    monitoring_task = None
 
-    # Database verification
     try:
+        # Start connection tracking cleanup task
+        await connection_tracker.start_cleanup_task()
+
+        # Database verification
         db = SessionLocal()
-        inspector = inspect(db.bind)
+        try:
+            inspector = inspect(db.bind)
 
-        if not inspector.has_table(ServerPerformance.__tablename__):
-            logger.error(f"Table {ServerPerformance.__tablename__} does not exist!")
-            raise RuntimeError(f"Required table {ServerPerformance.__tablename__} is missing")
+            if not inspector.has_table(ServerPerformance.__tablename__):
+                logger.error(f"Table {ServerPerformance.__tablename__} does not exist!")
+                raise RuntimeError(f"Required table {ServerPerformance.__tablename__} is missing")
 
-        logger.info(f"Verified {ServerPerformance.__tablename__} table exists")
-        db.close()
+            logger.info(f"Verified {ServerPerformance.__tablename__} table exists")
+        finally:
+            db.close()
+
+        # Start performance monitoring
+        logger.info("Starting performance monitoring...")
+        monitoring_task = asyncio.create_task(performance_monitor.start_monitoring())
+
+        yield
+
     except Exception as e:
-        logger.error(f"Database verification failed: {str(e)}")
+        logger.error(f"Startup error: {str(e)}")
         raise
+    finally:
+        # Shutdown tasks
+        logger.info("Stopping performance monitoring...")
+        performance_monitor.stop_monitoring()
 
-    # Start performance monitoring
-    logger.info("Starting performance monitoring...")
-    monitoring_task = asyncio.create_task(performance_monitor.start_monitoring())
+        if monitoring_task:
+            monitoring_task.cancel()
+            try:
+                await monitoring_task
+            except asyncio.CancelledError:
+                pass  # This is expected
+            except Exception as e:
+                logger.error(f"Error during monitoring shutdown: {str(e)}")
 
-    yield
-
-    # Shutdown tasks
-    logger.info("Stopping performance monitoring...")
-    performance_monitor.stop_monitoring()
-    await connection_tracker.stop_cleanup_task()
-    try:
-        await monitoring_task
-    except Exception as e:
-        logger.error(f"Error during monitoring shutdown: {str(e)}")
+        try:
+            await connection_tracker.stop_cleanup_task()
+        except Exception as e:
+            logger.error(f"Error stopping connection tracker: {str(e)}")
 
 
 # Create FastAPI app with lifespan
@@ -142,12 +153,15 @@ setup_cors(app)
 
 # Add middleware in correct order - order is important!
 # 1. Error handling should be first to catch all errors
+# noinspection PyTypeChecker
 app.add_middleware(ErrorHandlingMiddleware)
 
 # 2. Database middleware to ensure DB session is available
+# noinspection PyTypeChecker
 app.add_middleware(DatabaseMiddleware)
 
 # 3. Enhanced connection tracking with rate limiting
+# noinspection PyTypeChecker
 app.add_middleware(
     EnhancedConnectionMiddleware,
     rate_limit=100,  # Requests per window
@@ -177,18 +191,17 @@ app.include_router(
     prefix="/api/performance",
     tags=["Performance Monitoring"]
 )
-
 app.include_router(
     profile_router,
     prefix="/api",
     tags=["User Profile"]
 )
-
 app.include_router(
     preferences_router,
     prefix="/api",
     tags=["User Preferences"]
 )
+
 
 @app.get("/api/health", tags=["Health"])
 async def health_check():
@@ -211,7 +224,6 @@ async def health_check():
     }
 
 
-# Rate limiting info endpoint
 @app.get("/api/rate-limit-info", tags=["Rate Limit Info"])
 async def rate_limit_info(request: Request):
     """

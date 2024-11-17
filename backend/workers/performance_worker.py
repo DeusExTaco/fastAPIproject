@@ -46,7 +46,6 @@ def _get_system_metrics():
         metrics["http_status"] = 200
         metrics["response_time"] = 0  # Base metric
 
-        # logger.debug(f"Collected metrics: {metrics}")
         return metrics
 
     except Exception as e:
@@ -108,6 +107,7 @@ class PerformanceMonitor:
         self._error_count = 0
         self._db_error_count = 0
         self._last_db_error_time = 0
+        self._monitor_task = None
 
     async def collect_metrics(self):
         """Collect and store system metrics with enhanced tracking"""
@@ -133,15 +133,6 @@ class PerformanceMonitor:
                 db.add(performance_record)
                 db.commit()
 
-                # logger .info(
-                #     f"Successfully recorded metrics: CPU: {metrics['cpu_usage']}%, "
-                #     f"Memory: {metrics['memory_usage']}%, "
-                #     f"Disk: {metrics['disk_usage']}%, "
-                #     f"Active Connections: {metrics['active_connections']}, "
-                #     f"Authenticated: {metrics['authenticated_connections']}, "
-                #     f"Anonymous: {metrics['anonymous_connections']}"
-                # )
-
             except SQLAlchemyError as e:
                 db.rollback()
                 if self._db_error_count < 3:
@@ -161,14 +152,26 @@ class PerformanceMonitor:
         while self.is_running:
             try:
                 await self.collect_metrics()
-                await asyncio.sleep(self.interval)
+                # Use wait_for to make sleep cancellable
+                try:
+                    await asyncio.wait_for(asyncio.sleep(self.interval), timeout=self.interval)
+                except asyncio.TimeoutError:
+                    # This is expected when cancelled
+                    if not self.is_running:
+                        break
+                    pass
             except asyncio.CancelledError:
                 logger.info("Performance monitoring task cancelled")
                 self.is_running = False
                 break
             except Exception as e:
                 logger.error(f"Error in monitoring loop: {str(e)}")
-                await asyncio.sleep(5)  # Wait before retrying
+                try:
+                    await asyncio.wait_for(asyncio.sleep(5), timeout=5)
+                except asyncio.TimeoutError:
+                    if not self.is_running:
+                        break
+                    pass
 
     def stop_monitoring(self):
         """Safely stop the monitoring process"""
