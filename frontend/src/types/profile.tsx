@@ -7,6 +7,7 @@ export interface Address {
   state?: string;
   country?: string;
   postal_code?: string;
+  [key: string]: string | number | undefined;
 }
 
 export interface Profile {

@@ -1,5 +1,4 @@
-// src/components/EditProfileDialog.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from "@material-tailwind/react";
 import {
   UserCircle,
@@ -24,16 +23,46 @@ interface EditProfileDialogProps {
   token: string;
 }
 
-// Type for the profile service update payload
-type ProfileUpdatePayload = {
-  social_media: NonNullable<Profile['social_media']>;
-};
+interface FormChanges {
+  profile: Set<keyof Profile>;
+  addresses: Map<number, Set<keyof Address>>;
+  socials: Set<string>;
+}
 
+type AddressField = Exclude<keyof Address, 'id' | 'user_id'>;
+
+interface AddressChanges {
+  modified: Map<number, Set<AddressField>>;
+  deleted: Set<number>;
+  added: number[];
+}
+
+type TabType = 'profile' | 'addresses' | 'socials';
+
+interface MenuItem {
+  id: TabType;
+  icon: React.FC<{ className?: string }>;
+  label: string;
+}
+
+// Helper Functions
 const sanitizeWebsiteUrl = (website: string | undefined): string | undefined => {
   if (!website) return undefined;
-  const hasProtocol = RegExp(/^https?:\/\//).exec(website);
+  const hasProtocol = /^https?:\/\//.test(website);
   return hasProtocol ? website : `https://${website}`;
 };
+
+const createInitialFormChanges = (): FormChanges => ({
+  profile: new Set<keyof Profile>(),
+  addresses: new Map<number, Set<keyof Address>>(),
+  socials: new Set<string>()
+});
+
+const createInitialAddressChanges = (): AddressChanges => ({
+  modified: new Map(),
+  deleted: new Set(),
+  added: []
+});
 
 const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
   open,
@@ -41,245 +70,318 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
   userId,
   token
 }) => {
-  const [activeTab, setActiveTab] = useState<'profile' | 'addresses' | 'socials'>('profile');
+  // State Management
+  const [activeTab, setActiveTab] = useState<TabType>('profile');
   const [profile, setProfile] = useState<Profile>({ social_media: {} });
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<ProfileServiceError | null>(null);
   const [isNavExpanded, setIsNavExpanded] = useState(window.innerWidth >= 1024);
+  const [changedFields, setChangedFields] = useState<FormChanges>(createInitialFormChanges());
+  const [addressChanges, setAddressChanges] = useState<AddressChanges>(createInitialAddressChanges());
 
+  // Menu Configuration
+  const menuItems: MenuItem[] = [
+    { id: 'profile', icon: UserCircle, label: 'Profile' },
+    { id: 'addresses', icon: MapPin, label: 'Addresses' },
+    { id: 'socials', icon: Share2, label: 'Social Media' }
+  ];
+
+  // Window Resize Handler
   useEffect(() => {
-    const handleResize = () => {
-      const width = window.innerWidth;
-      setIsNavExpanded(width >= 1024);
-    };
-
+    const handleResize = () => setIsNavExpanded(window.innerWidth >= 1024);
     window.addEventListener('resize', handleResize);
-    handleResize();
-
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // Data Fetching
+  const fetchData = useCallback(async () => {
+    if (!open) return;
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      const [profileData, addressesData] = await Promise.all([
+        profileService.getProfile(userId, token),
+        profileService.getAddresses(userId, token)
+      ]);
+
+      setProfile(profileData || { social_media: {} });
+      setAddresses(addressesData || []);
+      setChangedFields(createInitialFormChanges());
+      setAddressChanges(createInitialAddressChanges());
+    } catch (err) {
+      console.error('Error fetching data:', err);
+      setError(
+        err instanceof ProfileServiceError
+          ? err
+          : new ProfileServiceError('Failed to load profile data', { originalError: err })
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [userId, token, open]);
+
   useEffect(() => {
-    let mounted = true;
-
-    const fetchData = async () => {
-      if (!open) return;
-
-      try {
-        setLoading(true);
-        setError(null);
-        const [profileData, addressesData] = await Promise.all([
-          profileService.getProfile(userId, token),
-          profileService.getAddresses(userId, token)
-        ]);
-
-        if (!mounted) return;
-
-        setProfile(profileData || { social_media: {} });
-        setAddresses(addressesData || []);
-      } catch (err) {
-        if (!mounted) return;
-
-        console.error('Error fetching data:', err);
-        if (err instanceof ProfileServiceError) {
-          setError(err);
-        } else {
-          setError(new ProfileServiceError(
-            'Failed to load profile data',
-            { originalError: err }
-          ));
-        }
-      } finally {
-        if (mounted) {
-          setLoading(false);
-        }
-      }
-    };
-
     if (open) {
       setActiveTab('profile');
       void fetchData();
     }
+  }, [open, fetchData]);
 
-    return () => {
-      mounted = false;
+  // Profile Handlers
+  const handleProfileChange = useCallback((field: keyof Profile, value: any) => {
+    setProfile(prev => ({ ...prev, [field]: value }));
+    setChangedFields(prev => ({
+      ...prev,
+      profile: new Set(prev.profile).add(field)
+    }));
+  }, []);
+
+  // Address Handlers
+  const handleAddressChange = useCallback((index: number, field: AddressField, value: string) => {
+    setAddresses(prev => {
+      const newAddresses = [...prev];
+      if (index >= 0 && index < newAddresses.length) {
+        newAddresses[index] = { ...newAddresses[index], [field]: value };
+      }
+      return newAddresses;
+    });
+
+    setAddressChanges(prev => {
+      const newModified = new Map(prev.modified);
+      const address = addresses[index];
+
+      if (address?.id) {
+        const addressFields = newModified.get(address.id) || new Set<AddressField>();
+        addressFields.add(field);
+        newModified.set(address.id, addressFields);
+      }
+
+      return { ...prev, modified: newModified };
+    });
+  }, [addresses]);
+
+  const handleAddAddress = useCallback(() => {
+    const newAddress: Address = {
+      id: undefined,
+      user_id: userId,
+      street: '',
+      city: '',
+      state: '',
+      country: '',
+      postal_code: ''
     };
-  }, [userId, token, open]);
 
-  const handleProfileChange = (field: keyof Profile, value: any) => {
-    try {
-      setProfile(prev => ({
+    setAddresses(prev => [...prev, newAddress]);
+    setAddressChanges(prev => ({
+      ...prev,
+      added: [...prev.added, addresses.length]
+    }));
+  }, [userId, addresses.length]);
+
+  const handleRemoveAddress = useCallback((index: number) => {
+    const address = addresses[index];
+    if (!address) return;
+
+    if (address.id) {
+      setAddressChanges(prev => ({
         ...prev,
-        [field]: value
+        deleted: new Set([...prev.deleted, address.id as number])
       }));
-    } catch (err) {
-      setError(new ProfileServiceError(
-        'Failed to update profile field',
-        { field, value, error: err }
-      ));
-    }
-  };
-
-  const handleAddressChange = (index: number, field: keyof Address, value: string) => {
-    try {
-      setAddresses(prev => {
-        const newAddresses = [...prev];
-        newAddresses[index] = {
-          ...newAddresses[index],
-          [field]: value
-        };
-        return newAddresses;
-      });
-    } catch (err) {
-      setError(new ProfileServiceError(
-        'Failed to update address field',
-        { index, field, value, error: err }
-      ));
-    }
-  };
-
-  const handleAddAddress = () => {
-    try {
-      setAddresses(prev => [...prev, {
-        street: '',
-        city: '',
-        state: '',
-        country: '',
-        postal_code: ''
-      }]);
-    } catch (err) {
-      setError(new ProfileServiceError(
-        'Failed to add new address',
-        { error: err }
-      ));
-    }
-  };
-
-  const handleRemoveAddress = (index: number) => {
-    try {
+    } else {
       setAddresses(prev => prev.filter((_, i) => i !== index));
-    } catch (err) {
-      setError(new ProfileServiceError(
-        'Failed to remove address',
-        { index, error: err }
-      ));
-    }
-  };
-
-  const handleSocialMediaChange = (field: string, value: string) => {
-    try {
-      setProfile(prev => ({
+      setAddressChanges(prev => ({
         ...prev,
-        social_media: {
-          ...(prev.social_media || {}),
-          [field]: value
-        }
+        added: prev.added.filter(idx => idx !== index)
       }));
-    } catch (err) {
-      setError(new ProfileServiceError(
-        'Failed to update social media field',
-        { field, value, error: err }
-      ));
     }
-  };
+  }, [addresses]);
 
-  const handleSave = async () => {
-    try {
-      setError(null);
-      setSaving(true);
+  const handleSocialMediaChange = useCallback((platform: string, value: string) => {
+    setProfile(prev => ({
+      ...prev,
+      social_media: {
+        ...(prev.social_media || {}),
+        [platform]: value
+      }
+    }));
+    setChangedFields(prev => ({
+      ...prev,
+      socials: new Set(prev.socials).add(platform)
+    }));
+  }, []);
 
-      // Create a complete profile update payload with all fields
-      const updatedProfileData: Partial<Profile> = {
-        website: sanitizeWebsiteUrl(profile.website),
-        date_of_birth: profile.date_of_birth,
-        phone: profile.phone,
-        bio: profile.bio,
-        gender: profile.gender,
-        social_media: profile.social_media || {},
-        privacy_settings: profile.privacy_settings || {}
-      };
+  const hasChanges = changedFields.profile.size > 0 ||
+    addressChanges.modified.size > 0 ||
+    addressChanges.deleted.size > 0 ||
+    addressChanges.added.length > 0 ||
+    changedFields.socials.size > 0;
 
-      // Update the profile
-      const updatedProfile = await profileService.updateProfile(userId, token, {
-        ...updatedProfileData,
-        social_media: updatedProfileData.social_media || {} // Ensure social_media is included
+const isAddressEmpty = (address: Address): boolean => {
+  return !address.street && !address.city && !address.state && !address.country && !address.postal_code;
+};
+
+const handleSave = async () => {
+  if (!hasChanges) {
+    onClose();
+    return;
+  }
+
+  try {
+    setSaving(true);
+    setError(null);
+
+    // Handle Profile Updates
+    if (changedFields.profile.size > 0 || changedFields.socials.size > 0) {
+      const updatedProfileData: Partial<Profile> = {};
+
+      changedFields.profile.forEach(field => {
+        switch (field) {
+          case 'website':
+            updatedProfileData.website = sanitizeWebsiteUrl(profile.website);
+            break;
+          case 'social_media':
+            // Skip this as it's handled in the socials section
+            break;
+          case 'notification_preferences':
+            if (profile.notification_preferences) {
+              updatedProfileData.notification_preferences = {
+                ...profile.notification_preferences
+              };
+            }
+            break;
+          case 'privacy_settings':
+            if (profile.privacy_settings) {
+              updatedProfileData.privacy_settings = {
+                ...profile.privacy_settings
+              };
+            }
+            break;
+          default: {
+            // Handle all other simple fields
+            const value = profile[field];
+            if (value !== undefined) {
+              (updatedProfileData[field] as Profile[keyof Profile]) = value;
+            }
+            break;
+          }
+        }
       });
 
-      // Update local state with the response
-      setProfile(updatedProfile);
-
-      // Handle address updates if needed
-      if (addresses.length > 0) {
-        const addressPromises = addresses.map(address => {
-          const { id, user_id, ...addressData } = address;
-          return id
-            ? profileService.updateAddress(userId, id, token, addressData)
-            : profileService.createAddress(userId, token, addressData);
+      if (changedFields.socials.size > 0) {
+        const updatedSocialMedia: NonNullable<Profile['social_media']> = {};
+        changedFields.socials.forEach(platform => {
+          const value = profile.social_media?.[platform];
+          if (value !== undefined) {
+            updatedSocialMedia[platform] = value;
+          }
         });
 
-        const updatedAddresses = await Promise.all(addressPromises);
-        setAddresses(updatedAddresses);
+        if (Object.keys(updatedSocialMedia).length > 0) {
+          updatedProfileData.social_media = updatedSocialMedia;
+        }
       }
-
-      onClose();
-    } catch (err) {
-      console.error('Save error:', err);
-      if (err instanceof ProfileServiceError) {
-        setError(err);
-      } else {
-        setError(new ProfileServiceError(
-          'Failed to save profile changes',
-          { originalError: err }
-        ));
-      }
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleSaveSocialMedia = async () => {
-    try {
-      setError(null);
-      setSaving(true);
-
-      const updatePayload: ProfileUpdatePayload = {
-        social_media: profile.social_media || {}
-      };
 
       const updatedProfile = await profileService.updateProfile(
         userId,
         token,
-        updatePayload
+        updatedProfileData
       );
-
-      setProfile(prevProfile => ({
-        ...prevProfile,
-        social_media: updatedProfile.social_media || {}
-      }));
-
-      onClose();
-    } catch (err) {
-      console.error('Social media save error:', err);
-      if (err instanceof ProfileServiceError) {
-        setError(err);
-      } else {
-        setError(new ProfileServiceError(
-          'Failed to save social media changes',
-          { originalError: err }
-        ));
-      }
-    } finally {
-      setSaving(false);
+      setProfile(updatedProfile);
     }
-  };
 
-  const menuItems = [
-    { id: 'profile', icon: UserCircle, label: 'Profile' },
-    { id: 'addresses', icon: MapPin, label: 'Addresses' },
-    { id: 'socials', icon: Share2, label: 'Social Media' },
-  ];
+    // Handle Address Updates
+    let updatedAddresses = [...addresses];
+    if (addressChanges.modified.size > 0 || addressChanges.deleted.size > 0 || addressChanges.added.length > 0) {
+      // Handle deletions
+      if (addressChanges.deleted.size > 0) {
+        await Promise.all(
+          Array.from(addressChanges.deleted).map(addressId =>
+            profileService.deleteAddress(userId, addressId, token)
+          )
+        );
+        // Update local state by filtering out deleted addresses
+        updatedAddresses = updatedAddresses.filter(addr =>
+          addr.id ? !addressChanges.deleted.has(addr.id) : true
+        );
+      }
+
+      // Handle modifications
+      if (addressChanges.modified.size > 0) {
+        const modificationPromises = Array.from(addressChanges.modified.entries())
+          .filter(([id]) => !addressChanges.deleted.has(id))
+          .map(async ([id, fields]) => {
+            const address = addresses.find(a => a.id === id);
+            if (!address?.id || isAddressEmpty(address)) return null;
+
+            const updateData: Partial<Address> = {};
+            fields.forEach(field => {
+              updateData[field] = address[field];
+            });
+
+            const updatedAddress = await profileService.updateAddress(
+              userId,
+              address.id,
+              token,
+              updateData
+            );
+
+            // Update the address in our local state
+            const index = updatedAddresses.findIndex(a => a.id === id);
+            if (index !== -1) {
+              updatedAddresses[index] = updatedAddress;
+            }
+          });
+
+        await Promise.all(modificationPromises);
+      }
+
+      // Handle additions - filter out empty addresses
+      if (addressChanges.added.length > 0) {
+        const additionPromises = addresses
+          .filter((_, index) => addressChanges.added.includes(index))
+          .filter(address => !isAddressEmpty(address)) // Filter out empty addresses
+          .map(async address => {
+            const { id, user_id, ...addressData } = address;
+            const newAddress = await profileService.createAddress(
+              userId,
+              token,
+              addressData
+            );
+            // Replace the temporary address with the new one from the server
+            updatedAddresses = updatedAddresses.map(addr =>
+              addr === address ? newAddress : addr
+            );
+            return newAddress;
+          });
+
+        await Promise.all(additionPromises);
+      }
+
+      // Remove any empty addresses from local state
+      updatedAddresses = updatedAddresses.filter(addr => !isAddressEmpty(addr));
+
+      // Update state with our locally tracked changes
+      setAddresses(updatedAddresses);
+    }
+
+    setChangedFields(createInitialFormChanges());
+    setAddressChanges(createInitialAddressChanges());
+    onClose();
+  } catch (err) {
+    console.error('Save error:', err);
+    setError(
+      err instanceof ProfileServiceError
+        ? err
+        : new ProfileServiceError('Failed to save changes', { originalError: err })
+    );
+  } finally {
+    setSaving(false);
+  }
+};
 
   return (
     <DialogLayout
@@ -293,8 +395,9 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
             color="gray"
             size="sm"
             onClick={onClose}
-            className="dark:text-white dark:border-gray-600"
+            className="dark:text-white border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
             disabled={saving}
+            ripple={false}
             placeholder={""}
             onPointerEnterCapture={() => {}}
             onPointerLeaveCapture={() => {}}
@@ -304,9 +407,9 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
           <Button
             color="blue"
             size="sm"
-            onClick={activeTab === 'socials' ? handleSaveSocialMedia : handleSave}
+            onClick={handleSave}
             className="dark:text-white flex items-center gap-2"
-            disabled={saving}
+            disabled={saving || !hasChanges}
             placeholder={""}
             onPointerEnterCapture={() => {}}
             onPointerLeaveCapture={() => {}}
@@ -335,6 +438,7 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
       )}
     >
       <div className="flex h-full">
+        {/* Navigation */}
         <div
           className={`
             bg-white dark:bg-gray-800 
@@ -344,62 +448,32 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
           `}
         >
           <nav className="mt-4 px-3">
-            {menuItems.map((item) => (
+            {menuItems.map(item => (
               <button
                 key={item.id}
-                onClick={() => setActiveTab(item.id as typeof activeTab)}
+                onClick={() => setActiveTab(item.id)}
                 className="w-full text-left group"
               >
                 <div className="h-14 flex items-center relative">
-                  {!isNavExpanded && (
-                    <div className="absolute left-0 w-12 -ml-3 flex justify-center">
-                      <div
-                        className={`
-                          p-2 rounded-lg transition-colors duration-150
-                          ${activeTab === item.id
-                            ? 'bg-gray-100 dark:bg-gray-700 text-blue-600 dark:text-blue-400'
-                            : 'text-gray-700 dark:text-gray-200 group-hover:bg-gray-100 dark:group-hover:bg-gray-700'
-                          }
-                        `}
-                      >
-                        <item.icon className="w-5 h-5"/>
-                      </div>
-                    </div>
-                  )}
-
-                  {isNavExpanded && (
-                    <div
-                      className={`
-                        w-full flex items-center rounded-lg transition-colors duration-150 relative
-                        ${activeTab === item.id
-                          ? 'bg-gray-100 dark:bg-gray-700 text-blue-600 dark:text-blue-400'
-                          : 'text-gray-700 dark:text-gray-200 group-hover:bg-gray-100 dark:group-hover:bg-gray-700'
-                        }
-                      `}
-                    >
-                      {activeTab === item.id && (
-                        <div className="absolute left-0 top-0 bottom-0 w-1 rounded-l-lg bg-blue-600 dark:bg-blue-400" />
-                      )}
-                      <div className="w-12 flex justify-center p-2">
-                        <item.icon className="w-5 h-5"/>
-                      </div>
-                      <div
-                        className={`
-                          transition-[width,opacity] duration-200 ease-out
-                          overflow-hidden whitespace-nowrap delay-[0ms,100ms]
-                          ${isNavExpanded ? 'w-32 opacity-100' : 'w-0 opacity-0'}
-                        `}
-                      >
-                        {item.label}
-                      </div>
-                    </div>
-                  )}
+                  <div
+                    className={`
+                      p-2 rounded-lg transition-colors duration-150 flex items-center
+                      ${activeTab === item.id
+                        ? 'bg-gray-100 dark:bg-gray-700 text-blue-600 dark:text-blue-400'
+                        : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700'
+                      }
+                    `}
+                  >
+                    <item.icon className={`w-5 h-5 ${!isNavExpanded ? 'mr-0' : 'mr-3'}`} />
+                    {isNavExpanded && <span>{item.label}</span>}
+                  </div>
                 </div>
               </button>
             ))}
           </nav>
         </div>
 
+        {/* Content Area */}
         <div className="flex-1 overflow-hidden">
           {loading ? (
             <div className="h-full flex justify-center items-center">
@@ -416,15 +490,24 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
 
               {activeTab === 'addresses' && (
                 <div className="py-4 space-y-4">
-                  {addresses.map((address, index) => (
-                    <AddressForm
-                      key={address.id ?? `address-${index}`}
-                      address={address}
-                      index={index}
-                      onChange={handleAddressChange}
-                      onRemove={handleRemoveAddress}
-                    />
-                  ))}
+                  {addresses.map((address, index) => {
+                    const isDeleted = address.id ? addressChanges.deleted.has(address.id) : false;
+
+                    return (
+                      <div
+                        key={address.id ?? `new-address-${index}`}
+                        className={isDeleted ? 'opacity-50' : ''}
+                      >
+                        <AddressForm
+                          address={address}
+                          index={index}
+                          onChange={(field, value) => handleAddressChange(index, field, value)}
+                          onRemove={() => handleRemoveAddress(index)}
+                          isDeleted={isDeleted}
+                        />
+                      </div>
+                    );
+                  })}
                   <Button
                     onClick={handleAddAddress}
                     variant="outlined"
@@ -439,6 +522,7 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
                   </Button>
                 </div>
               )}
+
 
               {activeTab === 'socials' && (
                 <SocialsForm

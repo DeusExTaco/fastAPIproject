@@ -17,11 +17,3 @@ body {
   display: flex;
   flex: 1;
 }
-
-/* Override any Material Tailwind container styles */
-.material-tailwind-root {
-  max-width: none !important;
-  padding: 0 !important;
-  margin: 0 !important;
-  width: 100% !important;
-}

@@ -141,6 +141,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onLogin, onDialogClose }) 
       <div className="mb-3">
         <Input
           type="text"
+          color="blue"
           label="Username"
           value={username}
           onChange={handleUsernameChange}
@@ -152,11 +153,16 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onLogin, onDialogClose }) 
           onPointerEnterCapture={() => {}}
           onPointerLeaveCapture={() => {}}
           crossOrigin={undefined}
+          autoComplete="username"
+          placeholder={""}
+          autoFocus={true}
+          required={true}
         />
       </div>
       <div className="mb-3">
         <Input
           type="password"
+          color="blue"
           label="Password"
           value={password}
           onChange={handlePasswordChange}
@@ -169,6 +175,8 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onLogin, onDialogClose }) 
           onPointerEnterCapture={() => {}}
           onPointerLeaveCapture={() => {}}
           crossOrigin={undefined}
+          autoComplete="current-password"
+          required={true}
         />
       </div>
       <Button

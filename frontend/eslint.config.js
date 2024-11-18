@@ -11,7 +11,7 @@ export default tseslint.config(
     languageOptions: {
       ecmaVersion: 2020,
       globals: {
-        ...globals.browser
+        ...globals["browser"]
       },
     },
     plugins: {
@@ -30,6 +30,6 @@ export default tseslint.config(
     },
   },
   // Add TypeScript configuration
-  ...tseslint.configs.recommended,
-  js.configs.recommended
+  ...tseslint["configs"]["recommended"],
+  js["configs"]["recommended"]
 );

@@ -1,4 +1,4 @@
-// src/services/profileService.ts
+// src/services/profileService.tsx
 import { Address, Profile } from '../types/profile';
 import { ProfileServiceError } from '../types/errors/ProfileServiceError';
 
@@ -17,8 +17,21 @@ const handleApiResponse = async <TData,>(
     }
   }
 
-  const data = await response.json();
-  return data as TData;
+  // If response status is 204 (No Content) or response doesn't have a body, return null
+  if (response.status === 204 || response.headers.get('content-length') === '0') {
+    return null as TData;
+  }
+
+  try {
+    const data = await response.json();
+    return data as TData;
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('Unexpected end of JSON input')) {
+      // If the response is empty but status is OK, return null
+      return null as TData;
+    }
+    throw error;
+  }
 };
 
 const makeApiCall = async <TData,>(
@@ -56,15 +69,7 @@ export const profileService = {
   updateProfile: async (
     userId: number,
     token: string,
-    profile: {
-      social_media: {
-        twitter?: string;
-        linkedin?: string;
-        GitHub?: string;
-        Instagram?: string;
-        [p: string]: string | undefined;
-      };
-    }
+    profile: Partial<Profile>
   ): Promise<Profile> => {
     console.log('Sending profile update:', JSON.stringify(profile, null, 2));
 
@@ -95,7 +100,7 @@ export const profileService = {
   createAddress: async (
     userId: number,
     token: string,
-    address: Omit<Address, 'id' | 'user_id'>
+    address: Partial<Address>
   ): Promise<Address> => {
     return makeApiCall<Address>(
       () => fetch(`${BASE_URL}/users/${userId}/addresses`, {
@@ -114,7 +119,7 @@ export const profileService = {
     userId: number,
     addressId: number,
     token: string,
-    address: Omit<Address, 'id' | 'user_id'>
+    address: Partial<Address>
   ): Promise<Address> => {
     return makeApiCall<Address>(
       () => fetch(`${BASE_URL}/users/${userId}/addresses/${addressId}`, {
@@ -130,14 +135,14 @@ export const profileService = {
   },
 
   deleteAddress: async (userId: number, addressId: number, token: string): Promise<void> => {
-      return makeApiCall<void>(
-        () => fetch(`${BASE_URL}/users/${userId}/addresses/${addressId}`, {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        }),
-        'Failed to delete address'
-      );
-    }
+    return makeApiCall<void>(
+      () => fetch(`${BASE_URL}/users/${userId}/addresses/${addressId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      }),
+      'Failed to delete address'
+    );
+  },
 };

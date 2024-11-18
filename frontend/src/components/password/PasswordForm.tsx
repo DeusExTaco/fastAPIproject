@@ -245,6 +245,16 @@ const PasswordForm: React.FC<PasswordFormProps> = ({
                             </div>
                         )}
 
+                        <input
+                            type="text"
+                            name="username"
+                            value=""
+                            readOnly
+                            autoComplete="username"
+                            style={{display: 'none'}}
+                            tabIndex={-1}
+                        />
+
                         {requireCurrentPassword && (
                             <Input
                                 type="password"
@@ -256,12 +266,15 @@ const PasswordForm: React.FC<PasswordFormProps> = ({
                                     currentPassword: e.target.value
                                 }))}
                                 required={requireCurrentPassword}
-                                labelProps={{ className: "text-gray-700" }}
-                                containerProps={{ className: "min-w-[100px]" }}
+                                labelProps={{className: "text-gray-700"}}
+                                containerProps={{className: "min-w-[100px]"}}
                                 crossOrigin={undefined}
                                 placeholder=""
-                                onPointerEnterCapture={() => {}}
-                                onPointerLeaveCapture={() => {}}
+                                onPointerEnterCapture={() => {
+                                }}
+                                onPointerLeaveCapture={() => {
+                                }}
+                                autoComplete="current-password"
                             />
                         )}
 
@@ -275,14 +288,17 @@ const PasswordForm: React.FC<PasswordFormProps> = ({
                                 newPassword: e.target.value
                             }))}
                             required
-                            labelProps={{ className: "text-gray-700" }}
-                            containerProps={{ className: "min-w-[100px]" }}
+                            labelProps={{className: "text-gray-700"}}
+                            containerProps={{className: "min-w-[100px]"}}
                             crossOrigin={undefined}
                             placeholder=""
-                            onPointerEnterCapture={() => {}}
-                            onPointerLeaveCapture={() => {}}
+                            onPointerEnterCapture={() => {
+                            }}
+                            onPointerLeaveCapture={() => {
+                            }}
+                            autoComplete="new-password"
                         />
-                        <PasswordRequirements password={formState.newPassword} />
+                        <PasswordRequirements password={formState.newPassword}/>
 
                         <Input
                             type="password"
@@ -294,12 +310,15 @@ const PasswordForm: React.FC<PasswordFormProps> = ({
                                 confirmPassword: e.target.value
                             }))}
                             required
-                            labelProps={{ className: "text-gray-700" }}
-                            containerProps={{ className: "min-w-[100px]" }}
+                            labelProps={{className: "text-gray-700"}}
+                            containerProps={{className: "min-w-[100px]"}}
                             crossOrigin={undefined}
                             placeholder=""
-                            onPointerEnterCapture={() => {}}
-                            onPointerLeaveCapture={() => {}}
+                            onPointerEnterCapture={() => {
+                            }}
+                            onPointerLeaveCapture={() => {
+                            }}
+                            autoComplete="new-password"
                         />
 
                         <div className="flex flex-col sm:flex-row gap-4">
@@ -312,8 +331,10 @@ const PasswordForm: React.FC<PasswordFormProps> = ({
                                 ripple={false}
                                 variant={formState.isSubmitting ? "filled" : "gradient"}
                                 placeholder=""
-                                onPointerEnterCapture={() => {}}
-                                onPointerLeaveCapture={() => {}}
+                                onPointerEnterCapture={() => {
+                                }}
+                                onPointerLeaveCapture={() => {
+                                }}
                             >
                                 {formState.isSubmitting ? 'Updating...' : 'Update Password'}
                             </Button>
@@ -327,8 +348,10 @@ const PasswordForm: React.FC<PasswordFormProps> = ({
                                     variant="outlined"
                                     ripple={false}
                                     placeholder=""
-                                    onPointerEnterCapture={() => {}}
-                                    onPointerLeaveCapture={() => {}}
+                                    onPointerEnterCapture={() => {
+                                    }}
+                                    onPointerLeaveCapture={() => {
+                                    }}
                                 >
                                     Cancel
                                 </Button>
@@ -346,8 +369,10 @@ const PasswordForm: React.FC<PasswordFormProps> = ({
                                     disabled={formState.isSubmitting}
                                     variant="filled"
                                     placeholder=""
-                                    onPointerEnterCapture={() => {}}
-                                    onPointerLeaveCapture={() => {}}
+                                    onPointerEnterCapture={() => {
+                                    }}
+                                    onPointerLeaveCapture={() => {
+                                    }}
                                     className="flex-shrink-0 z-10 inline-flex py-2 h-8 items-center px-4 text-xs font-bold text-center text-white bg-blue-700 border hover:bg-blue-800 border-blue-700 hover:border-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 rounded-none rounded-l-lg"
                                 >
                                     Generate & Fill
@@ -369,16 +394,18 @@ const PasswordForm: React.FC<PasswordFormProps> = ({
                                     variant="filled"
                                     ripple={true}
                                     placeholder=""
-                                    onPointerEnterCapture={() => {}}
-                                    onPointerLeaveCapture={() => {}}
+                                    onPointerEnterCapture={() => {
+                                    }}
+                                    onPointerLeaveCapture={() => {
+                                    }}
                                     className="py-2 h-8 w-8 rounded-e-lg rounded-l-none flex-shrink-0 z-10 inline-flex items-center justify-center text-sm font-medium text-center text-white bg-blue-700 hover:bg-blue-800 disabled:opacity-75 disabled:hover:bg-blue-700 p-0"
                                     aria-label="Copy to clipboard"
                                 >
                                     <div className="w-4 h-4">
                                         {formState.copied ? (
-                                            <Check size={16} className="text-white" />
+                                            <Check size={16} className="text-white"/>
                                         ) : (
-                                            <Copy size={16} className="text-white" />
+                                            <Copy size={16} className="text-white"/>
                                         )}
                                     </div>
                                 </Button>
