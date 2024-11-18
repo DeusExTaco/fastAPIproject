@@ -127,5 +127,17 @@ export const profileService = {
       }),
       'Failed to update address'
     );
-  }
+  },
+
+  deleteAddress: async (userId: number, addressId: number, token: string): Promise<void> => {
+      return makeApiCall<void>(
+        () => fetch(`${BASE_URL}/users/${userId}/addresses/${addressId}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        }),
+        'Failed to delete address'
+      );
+    }
 };

@@ -1,7 +1,8 @@
 # models/user_profile.py
-from sqlalchemy import Column, Integer, String, ForeignKey, JSON
+from sqlalchemy import Column, Integer, String, ForeignKey, JSON, DateTime
 from sqlalchemy.orm import relationship
-from database import Base
+from sqlalchemy.sql import func
+from db.base import Base
 
 
 class UserAddress(Base):
@@ -14,6 +15,8 @@ class UserAddress(Base):
     state = Column(String(100))
     country = Column(String(100))
     postal_code = Column(String(20))
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
     user = relationship("User", back_populates="addresses")
 
@@ -29,6 +32,8 @@ class UserProfile(Base):
     avatar_url = Column(String(255))
     bio = Column(String(1000))
     website = Column(String(255))
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
     # Store social media links as JSON
     social_media = Column(JSON, default=dict)

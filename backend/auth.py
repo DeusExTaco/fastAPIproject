@@ -12,7 +12,7 @@ from fastapi.security import OAuth2PasswordBearer
 from jwt import PyJWTError
 from sqlalchemy.orm import Session
 
-from database import get_db
+from db.session import get_db
 from models import User
 from schemas import TokenData
 

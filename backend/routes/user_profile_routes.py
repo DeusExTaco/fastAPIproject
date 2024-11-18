@@ -7,7 +7,7 @@ from sqlalchemy import inspect, select
 from sqlalchemy.sql import func
 
 from auth import get_current_user
-from database import get_db
+from db.session import get_db
 from models.user import User
 from models.user_profile import UserProfile, UserAddress
 from schemas.user_profile import (
@@ -160,6 +160,13 @@ class CrudOperations:
 
         if self.model == UserProfile:
             result = handle_json_fields(result, "parse")
+
+        # Convert datetime objects to ISO format strings if needed
+        if 'created_at' in result:
+            result['created_at'] = result['created_at'].isoformat()
+        if 'updated_at' in result:
+            result['updated_at'] = result['updated_at'].isoformat()
+
         return result
 
 

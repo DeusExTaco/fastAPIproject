@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, status
 from sqlalchemy.orm import Session
 
 from auth import get_current_user, check_admin
-from database import get_db
+from db.session import get_db
 from services.user_service import UserService
 from templates.email.welcome_template import send_welcome_email
 from models.user import User

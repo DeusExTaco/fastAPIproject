@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from auth import get_current_user, check_admin
-from database import get_db
+from db.session import get_db
 from models.user import User
 from schemas.performance import PerformanceResponse
 from services.performance_service import PerformanceService

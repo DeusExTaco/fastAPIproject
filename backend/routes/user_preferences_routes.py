@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import inspect
 
 from auth import get_current_user
-from database import get_db
+from db.session import get_db
 from models.user import User
 from models.user_preferences import UserPreferences
 from schemas.user_preferences import (

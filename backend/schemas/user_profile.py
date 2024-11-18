@@ -1,5 +1,7 @@
+# schemas/user_profile.py
 from typing import Optional, Dict
 from pydantic import BaseModel, HttpUrl
+from datetime import datetime
 
 class UserAddressBase(BaseModel):
     street: Optional[str] = None
@@ -17,6 +19,8 @@ class UserAddressUpdate(UserAddressBase):
 class UserAddressResponse(UserAddressBase):
     id: int
     user_id: int
+    created_at: datetime
+    updated_at: datetime
 
     model_config = {
         "from_attributes": True
@@ -42,6 +46,8 @@ class UserProfileUpdate(UserProfileBase):
 class UserProfileResponse(UserProfileBase):
     id: int
     user_id: int
+    created_at: datetime
+    updated_at: datetime
 
     model_config = {
         "from_attributes": True

@@ -1,8 +1,7 @@
-# middleware/db.py
+# middleware/db_middleware.py
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
-
-from database import SessionLocal
+from db.session import SessionLocal
 
 class DatabaseMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):

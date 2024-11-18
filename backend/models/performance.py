@@ -1,7 +1,7 @@
 # backend/models/performance.py
 from datetime import datetime, timezone
 from sqlalchemy import Column, Integer, Float, DateTime, String, JSON
-from database import Base
+from db.base import Base
 
 class ServerPerformance(Base):
     __tablename__ = 'server_performance'

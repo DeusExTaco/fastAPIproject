@@ -1,5 +1,4 @@
-# main.py
-
+# backend/main.py
 import logging
 import asyncio
 from typing import Any
@@ -11,11 +10,12 @@ from sqlalchemy import inspect
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from config import get_settings
-from database import init_db, SessionLocal
+from db.session import get_db
+from db.init_db import init_db
 from middleware.performance import record_performance_metrics
 from middleware.enhanced_connection_tracker import connection_tracker
 from middleware.connection_middleware import EnhancedConnectionMiddleware
-from middleware.db import DatabaseMiddleware
+from middleware.db_middleware import DatabaseMiddleware
 from middleware.cors import setup_cors
 from models.performance import ServerPerformance
 from workers.performance_worker import PerformanceMonitor
@@ -37,20 +37,20 @@ logging.basicConfig(
     force=True
 )
 
-# Configure SQLAlchemy logging - repeat here to ensure it's set before any DB operations
-for logger_name in [
-    'sqlalchemy.engine',
-    'sqlalchemy.orm',
-    'sqlalchemy.pool',
-    'sqlalchemy.dialects',
-    'sqlalchemy.orm.mapper',
-    'sqlalchemy.orm.relationships',
-    'sqlalchemy.orm.strategies',
-    'sqlalchemy.engine.base.Engine'
-]:
-    logging.getLogger(logger_name).setLevel(logging.WARNING)
-    logging.getLogger(logger_name).propagate = False
-    logging.getLogger(logger_name).handlers = []
+# Configure SQLAlchemy logging
+# for logger_name in [
+#     'sqlalchemy.engine',
+#     'sqlalchemy.orm',
+#     'sqlalchemy.pool',
+#     'sqlalchemy.dialects',
+#     'sqlalchemy.orm.mapper',
+#     'sqlalchemy.orm.relationships',
+#     'sqlalchemy.orm.strategies',
+#     'sqlalchemy.engine.base.Engine'
+# ]:
+#     logging.getLogger(logger_name).setLevel(logging.WARNING)
+#     logging.getLogger(logger_name).propagate = False
+#     logging.getLogger(logger_name).handlers = []
 
 # Configure uvicorn access logs
 logging.getLogger(ua).handlers = []
@@ -69,10 +69,9 @@ performance_monitor = PerformanceMonitor(interval=60)
 
 
 @asynccontextmanager
-async def lifespan(fastapi_app: FastAPI):
+async def lifespan(_: FastAPI):
     """
     Application lifespan manager handling startup and shutdown tasks
-    Now includes enhanced connection tracking and performance monitoring
     """
     monitoring_task = None
 
@@ -81,17 +80,18 @@ async def lifespan(fastapi_app: FastAPI):
         await connection_tracker.start_cleanup_task()
 
         # Database verification
-        db = SessionLocal()
-        try:
-            inspector = inspect(db.bind)
+        async for db in get_db():  # Updated to use async generator
+            try:
+                inspector = inspect(db.bind)
 
-            if not inspector.has_table(ServerPerformance.__tablename__):
-                logger.error(f"Table {ServerPerformance.__tablename__} does not exist!")
-                raise RuntimeError(f"Required table {ServerPerformance.__tablename__} is missing")
+                if not inspector.has_table(ServerPerformance.__tablename__):
+                    logger.error(f"Table {ServerPerformance.__tablename__} does not exist!")
+                    raise RuntimeError(f"Required table {ServerPerformance.__tablename__} is missing")
 
-            logger.info(f"Verified {ServerPerformance.__tablename__} table exists")
-        finally:
-            db.close()
+                logger.info(f"Verified {ServerPerformance.__tablename__} table exists")
+                break  # Exit after successful verification
+            finally:
+                db.close()
 
         # Start performance monitoring
         logger.info("Starting performance monitoring...")

@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Response
 from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 
-from database import get_db
+from db.session import get_db
 from random_password import PasswordGenerator
 from services.auth_service import AuthService
 from services.password_service import PasswordService

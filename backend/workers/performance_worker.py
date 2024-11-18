@@ -4,7 +4,7 @@ import psutil
 import time
 from datetime import datetime, timezone
 import logging
-from database import SessionLocal
+from db.session import SessionLocal
 from models.performance import ServerPerformance
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy import text
