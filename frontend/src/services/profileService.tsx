@@ -66,7 +66,7 @@ export const profileService = {
     );
   },
 
-  updateProfile: async (
+"updateProfile": async (
     userId: number,
     token: string,
     profile: Partial<Profile>

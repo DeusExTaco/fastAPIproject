@@ -1,8 +1,9 @@
 # services/performance_service.py
 from datetime import datetime, timedelta, timezone
-from typing import List, Dict, Any
+from typing import Dict, Any, Type
 from sqlalchemy import func, distinct, case
 from sqlalchemy.orm import Session
+
 from models.performance import ServerPerformance
 
 class PerformanceService:
@@ -14,7 +15,7 @@ class PerformanceService:
             start_time: datetime = None,
             end_time: datetime = None,
             limit: int = 1000
-    ) -> List[ServerPerformance]:
+    ) -> list[Type[ServerPerformance]]:
         query = self.db.query(ServerPerformance)
 
         if start_time:

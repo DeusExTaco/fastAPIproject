@@ -39,9 +39,13 @@ def validate_password_strength(password: str) -> str:
 
 class NewPasswordValidatorMixin:
     """Mixin class for new password validation"""
+
+    # noinspection PyMethodParameters
     @field_validator('new_password')
     def validate_new_password(cls, v):
         return validate_password_strength(v)
+
+
 
 class PasswordUpdateRequest(NewPasswordValidatorMixin, BaseModel):
     user_id: Optional[int] = None
@@ -49,6 +53,7 @@ class PasswordUpdateRequest(NewPasswordValidatorMixin, BaseModel):
     new_password: str
     token: Optional[str] = None
 
+    # noinspection PyMethodParameters
     @field_validator('current_password', 'user_id')
     def validate_required_fields(cls, v, field):
         token = getattr(field.data, 'token', None)
@@ -75,10 +80,12 @@ class UserCreate(UserBase):
     roles: List[Union[UserRole, str]] = Field(default=[UserRole.USER])
     status: UserStatus = Field(default=UserStatus.PENDING)
 
+    # noinspection PyMethodParameters
     @field_validator('password')
     def validate_password(cls, v):
         return validate_password_strength(v)
 
+    # noinspection PyMethodParameters
     @field_validator('roles')
     def validate_roles(cls, v):
         if not v:
@@ -127,6 +134,7 @@ class UserResponse(UserBase):
     updated_at: datetime
     last_login: Optional[datetime] = None
 
+    # noinspection PyMethodParameters
     @field_validator('roles', mode='before')
     def validate_roles(cls, v):
         if isinstance(v, str):
@@ -158,6 +166,7 @@ class UserLogin(BaseModel):
 
 # Add this to your existing schemas.py, keeping all other classes unchanged
 
+# noinspection PyMethodParameters
 class UserUpdateRequest(BaseModel):
     """Schema for updating user details"""
     """Schema for updating user details"""
@@ -225,6 +234,7 @@ class UserListResponse(BaseModel):
     updated_at: datetime
     last_login: Optional[datetime] = None
 
+    # noinspection PyMethodParameters
     @field_validator('roles', mode='before')
     def validate_roles(cls, v):
         if isinstance(v, str):

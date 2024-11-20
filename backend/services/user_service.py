@@ -2,7 +2,7 @@
 import logging
 import secrets
 from datetime import datetime, timedelta, UTC
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, Type
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
@@ -28,7 +28,7 @@ class UserService:
     def get_user_by_reset_token(self, token: str) -> Optional[User]:
         return self.db.query(User).filter(User.reset_token == token).first()
 
-    def get_all_users(self) -> List[User]:
+    def get_all_users(self) -> list[Type[User]]:
         return self.db.query(User).all()
 
     def create_user(self, user_data: dict) -> User:

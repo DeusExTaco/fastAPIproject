@@ -1,9 +1,9 @@
 from typing import Optional, Dict
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 class UserPreferencesBase(BaseModel):
     dark_mode: Optional[bool] = False
-    theme_preferences: Optional[Dict] = {}
+    theme_preferences: Optional[Dict] = Field(default_factory=dict)
 
 class UserPreferencesCreate(UserPreferencesBase):
     pass

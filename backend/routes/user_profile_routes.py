@@ -93,10 +93,14 @@ class CrudOperations:
         self.current_user = current_user
 
     def _get_base_query(self, item_id: Optional[int] = None):
-        stmt = select(self.model).where(self.model.user_id == self.user_id)
+        # Use and_ for combining conditions
+        from sqlalchemy import and_
+
+        conditions = [self.model.user_id == self.user_id]
         if item_id is not None:
-            stmt = stmt.where(self.model.id == item_id)
-        return stmt
+            conditions.append(self.model.id == item_id)
+
+        return select(self.model).where(and_(*conditions))
 
     async def get(self, item_id: Optional[int] = None) -> Union[List[Dict[str, Any]], Dict[str, Any]]:
         stmt = self._get_base_query(item_id)

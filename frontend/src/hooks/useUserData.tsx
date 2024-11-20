@@ -14,6 +14,38 @@ interface UseUserDataReturn {
   setIsPolling: (isPolling: boolean) => void;
 }
 
+interface ApiErrorResponse {
+  message?: string;
+  detail?: string;
+}
+
+// Custom error classes
+class AuthenticationError extends Error {
+  constructor(message: string = 'Authentication failed') {
+    super(message);
+    this.name = 'AuthenticationError';
+  }
+}
+
+class FetchUsersError extends Error {
+  constructor(message: string = 'Failed to fetch users') {
+    super(message);
+    this.name = 'FetchUsersError';
+  }
+}
+
+const getErrorMessage = (error: Error): string => {
+  if (error instanceof AuthenticationError) {
+    return 'Session expired. Please log in again.';
+  }
+
+  if (error instanceof FetchUsersError) {
+    return error.message;
+  }
+
+  return 'An unexpected error occurred while fetching users';
+};
+
 export const useUserData = (
   initialUsers: DetailedUser[],
   token: string,
@@ -33,53 +65,56 @@ export const useUserData = (
 
   // Fetch users function
   const fetchUsers = useCallback(async (showLoading = true) => {
-    // Cancel any existing request
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
+  // Cancel any existing request
+  if (abortControllerRef.current) {
+    abortControllerRef.current.abort();
+  }
+
+  // Create new abort controller for this request
+  abortControllerRef.current = new AbortController();
+
+  if (showLoading) {
+    setIsUpdating(true);
+  }
+
+  try {
+    const response = await fetch(`${API_URL}/users`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      signal: abortControllerRef.current.signal
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        onAuthError();
+        setError('Session expired. Please log in again.');
+        return;
+      }
+
+      const errorData: ApiErrorResponse = await response.json().catch(() => ({}));
+      const errorMessage = (errorData.message ?? errorData.detail) ?? 'Failed to fetch users';
+      setError(errorMessage);
+      return;
     }
 
-    // Create new abort controller for this request
-    abortControllerRef.current = new AbortController();
-
+    const data = await response.json();
+    setUsers(data);
+    setLastUpdated(new Date().toISOString());
+    setError(null);
+  } catch (err) {
+    // Only handle non-abort errors
+    if (err instanceof Error && err.name !== 'AbortError') {
+      console.error('Error fetching users:', err);
+      setError(getErrorMessage(err));
+    }
+  } finally {
     if (showLoading) {
-      setIsUpdating(true);
+      setIsUpdating(false);
     }
-
-    try {
-      const response = await fetch(`${API_URL}/users`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        signal: abortControllerRef.current.signal
-      });
-
-      if (!response.ok) {
-        if (response.status === 401) {
-          onAuthError();
-          throw new Error('AUTH_ERROR');
-        }
-        throw new Error('Failed to fetch users');
-      }
-
-      const data = await response.json();
-      setUsers(data);
-      setLastUpdated(new Date().toISOString());
-      setError(null);
-    } catch (error) {
-      // Only set error if it's not an abort error
-      if (error instanceof Error && error.name !== 'AbortError') {
-        setError(error.message);
-        if (error.message === 'AUTH_ERROR') {
-          onAuthError();
-        }
-      }
-    } finally {
-      if (showLoading) {
-        setIsUpdating(false);
-      }
-    }
-  }, [token, onAuthError]);
+  }
+}, [token, onAuthError]);
 
   // Start polling function
   const startPolling = useCallback(() => {
