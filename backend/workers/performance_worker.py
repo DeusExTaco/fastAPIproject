@@ -159,7 +159,6 @@ class PerformanceMonitor:
                     # This is expected when cancelled
                     if not self.is_running:
                         break
-                    pass
             except asyncio.CancelledError:
                 logger.info("Performance monitoring task cancelled")
                 self.is_running = False
@@ -171,7 +170,6 @@ class PerformanceMonitor:
                 except asyncio.TimeoutError:
                     if not self.is_running:
                         break
-                    pass
 
     def stop_monitoring(self):
         """Safely stop the monitoring process"""

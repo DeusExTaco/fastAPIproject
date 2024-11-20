@@ -45,6 +45,28 @@ interface MenuItem {
   label: string;
 }
 
+interface NotificationPreferences {
+  email?: boolean;
+  push?: boolean;
+  sms?: boolean;
+  [key: string]: boolean | undefined;
+}
+
+interface PrivacySettings {
+  profile_visibility?: string;
+  show_email?: boolean;
+  show_phone?: boolean;
+  [key: string]: string | boolean | undefined;
+}
+
+interface SocialMedia {
+  twitter?: string;
+  linkedin?: string;
+  GitHub?: string;
+  Instagram?: string;
+  [key: string]: string | undefined;
+}
+
 // Helper Functions
 const sanitizeWebsiteUrl = (website: string | undefined): string | undefined => {
   if (!website) return undefined;
@@ -63,6 +85,183 @@ const createInitialAddressChanges = (): AddressChanges => ({
   deleted: new Set(),
   added: []
 });
+
+const isAddressEmpty = (address: Address): boolean => {
+  return !address.street && !address.city && !address.state && !address.country && !address.postal_code;
+};
+
+// Profile service helpers
+const profileUpdateHelpers = {
+  handleProfileFields: (profile: Profile, changedFields: Set<keyof Profile>): Partial<Profile> => {
+    const updatedData: Partial<Profile> = {};
+
+    changedFields.forEach(field => {
+      switch (field) {
+        case 'website':
+          updatedData.website = sanitizeWebsiteUrl(profile.website);
+          break;
+        case 'social_media':
+          break; // Handled separately
+        case 'notification_preferences':
+          if (profile.notification_preferences) {
+            updatedData.notification_preferences = {
+              ...profile.notification_preferences
+            } as NotificationPreferences;
+          }
+          break;
+        case 'privacy_settings':
+          if (profile.privacy_settings) {
+            updatedData.privacy_settings = {
+              ...profile.privacy_settings
+            } as PrivacySettings;
+          }
+          break;
+        default: {
+          const value = profile[field];
+          if (value !== undefined) {
+            (updatedData[field] as Profile[keyof Profile]) = value;
+          }
+          break;
+        }
+      }
+    });
+
+    return updatedData;
+  },
+
+  handleSocialMediaUpdates: (
+    changedSocials: Set<string>,
+    socialMedia?: SocialMedia
+  ): Partial<SocialMedia> => {
+    if (changedSocials.size === 0 || !socialMedia) return {};
+
+    const updatedSocials: SocialMedia = {};
+    changedSocials.forEach(platform => {
+      const value = socialMedia[platform];
+      if (value !== undefined) {
+        updatedSocials[platform] = value;
+      }
+    });
+
+    return updatedSocials;
+  },
+
+  updateProfile: async (
+    userId: number,
+    token: string,
+    profile: Profile,
+    changedFields: Set<keyof Profile>,
+    changedSocials: Set<string>,
+    profileService: any
+  ): Promise<Profile> => {
+    const updatedProfileData = profileUpdateHelpers.handleProfileFields(profile, changedFields);
+    const updatedSocials = profileUpdateHelpers.handleSocialMediaUpdates(changedSocials, profile.social_media);
+
+    if (Object.keys(updatedSocials).length > 0) {
+      updatedProfileData.social_media = updatedSocials;
+    }
+
+    return await profileService.updateProfile(userId, token, updatedProfileData);
+  }
+};
+
+// Address service helpers
+const addressUpdateHelpers = {
+  handleAddressDeletions: async (
+    userId: number,
+    token: string,
+    deletedAddresses: Set<number>,
+    currentAddresses: Address[],
+    profileService: any
+  ): Promise<Address[]> => {
+    if (deletedAddresses.size === 0) return currentAddresses;
+
+    await Promise.all(
+      Array.from(deletedAddresses).map(addressId =>
+        profileService.deleteAddress(userId, addressId, token)
+      )
+    );
+
+    return currentAddresses.filter(addr =>
+      addr.id ? !deletedAddresses.has(addr.id) : true
+    );
+  },
+
+  handleAddressModifications: async (
+    userId: number,
+    token: string,
+    modifiedAddresses: Map<number, Set<AddressField>>,
+    deletedAddresses: Set<number>,
+    currentAddresses: Address[],
+    profileService: any
+  ): Promise<Address[]> => {
+    if (modifiedAddresses.size === 0) return currentAddresses;
+
+    const updatedAddresses = [...currentAddresses];
+
+    await Promise.all(
+      Array.from(modifiedAddresses.entries())
+        .filter(([id]) => !deletedAddresses.has(id))
+        .map(async ([id, fields]) => {
+          const address = currentAddresses.find(a => a.id === id);
+          if (!address?.id || isAddressEmpty(address)) return null;
+
+          const updateData: Partial<Address> = {};
+          fields.forEach(field => {
+            updateData[field] = address[field];
+          });
+
+          const updatedAddress = await profileService.updateAddress(
+            userId,
+            address.id,
+            token,
+            updateData
+          );
+
+          const index = updatedAddresses.findIndex(a => a.id === id);
+          if (index !== -1) {
+            updatedAddresses[index] = updatedAddress;
+          }
+        })
+    );
+
+    return updatedAddresses;
+  },
+
+  handleAddressAdditions: async (
+    userId: number,
+    token: string,
+    addedIndices: number[],
+    currentAddresses: Address[],
+    profileService: any
+  ): Promise<Address[]> => {
+    if (addedIndices.length === 0) return currentAddresses;
+
+    const updatedAddresses = [...currentAddresses];
+
+    const newAddresses = await Promise.all(
+      currentAddresses
+        .filter((_, index) => addedIndices.includes(index))
+        .filter(address => !isAddressEmpty(address))
+        .map(async address => {
+          const { id, user_id, ...addressData } = address;
+          return await profileService.createAddress(userId, token, addressData);
+        })
+    );
+
+    // Replace temporary addresses with server responses
+    newAddresses.forEach(newAddress => {
+      const index = updatedAddresses.findIndex(addr =>
+        addr.street === newAddress.street && !addr.id
+      );
+      if (index !== -1) {
+        updatedAddresses[index] = newAddress;
+      }
+    });
+
+    return updatedAddresses.filter(addr => !isAddressEmpty(addr));
+  }
+};
 
 const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
   open,
@@ -127,7 +326,7 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
   useEffect(() => {
     if (open) {
       setActiveTab('profile');
-      void fetchData();
+      fetchData();
     }
   }, [open, fetchData]);
 
@@ -220,168 +419,80 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
     addressChanges.added.length > 0 ||
     changedFields.socials.size > 0;
 
-const isAddressEmpty = (address: Address): boolean => {
-  return !address.street && !address.city && !address.state && !address.country && !address.postal_code;
-};
+  // Main save handler
+  const handleSave = async () => {
+    if (!hasChanges) {
+      onClose();
+      return;
+    }
 
-const handleSave = async () => {
-  if (!hasChanges) {
-    onClose();
-    return;
-  }
+    try {
+      setSaving(true);
+      setError(null);
 
-  try {
-    setSaving(true);
-    setError(null);
-
-    // Handle Profile Updates
-    if (changedFields.profile.size > 0 || changedFields.socials.size > 0) {
-      const updatedProfileData: Partial<Profile> = {};
-
-      changedFields.profile.forEach(field => {
-        switch (field) {
-          case 'website':
-            updatedProfileData.website = sanitizeWebsiteUrl(profile.website);
-            break;
-          case 'social_media':
-            // Skip this as it's handled in the socials section
-            break;
-          case 'notification_preferences':
-            if (profile.notification_preferences) {
-              updatedProfileData.notification_preferences = {
-                ...profile.notification_preferences
-              };
-            }
-            break;
-          case 'privacy_settings':
-            if (profile.privacy_settings) {
-              updatedProfileData.privacy_settings = {
-                ...profile.privacy_settings
-              };
-            }
-            break;
-          default: {
-            // Handle all other simple fields
-            const value = profile[field];
-            if (value !== undefined) {
-              (updatedProfileData[field] as Profile[keyof Profile]) = value;
-            }
-            break;
-          }
-        }
-      });
-
-      if (changedFields.socials.size > 0) {
-        const updatedSocialMedia: NonNullable<Profile['social_media']> = {};
-        changedFields.socials.forEach(platform => {
-          const value = profile.social_media?.[platform];
-          if (value !== undefined) {
-            updatedSocialMedia[platform] = value;
-          }
-        });
-
-        if (Object.keys(updatedSocialMedia).length > 0) {
-          updatedProfileData.social_media = updatedSocialMedia;
-        }
+      // Handle profile updates
+      if (changedFields.profile.size > 0 || changedFields.socials.size > 0) {
+        const updatedProfile = await profileUpdateHelpers.updateProfile(
+          userId,
+          token,
+          profile,
+          changedFields.profile,
+          changedFields.socials,
+          profileService
+        );
+        setProfile(updatedProfile);
       }
 
-      const updatedProfile = await profileService.updateProfile(
-        userId,
-        token,
-        updatedProfileData
+      // Handle address updates
+      if (addressChanges.modified.size > 0 ||
+          addressChanges.deleted.size > 0 ||
+          addressChanges.added.length > 0) {
+
+        let updatedAddresses = [...addresses];
+
+        // Process address changes sequentially
+        updatedAddresses = await addressUpdateHelpers.handleAddressDeletions(
+          userId,
+          token,
+          addressChanges.deleted,
+          updatedAddresses,
+          profileService
+        );
+
+        updatedAddresses = await addressUpdateHelpers.handleAddressModifications(
+          userId,
+          token,
+          addressChanges.modified,
+          addressChanges.deleted,
+          updatedAddresses,
+          profileService
+        );
+
+        updatedAddresses = await addressUpdateHelpers.handleAddressAdditions(
+          userId,
+          token,
+          addressChanges.added,
+          updatedAddresses,
+          profileService
+        );
+
+        setAddresses(updatedAddresses);
+      }
+
+      setChangedFields(createInitialFormChanges());
+      setAddressChanges(createInitialAddressChanges());
+      onClose();
+    } catch (err) {
+      console.error('Save error:', err);
+      setError(
+        err instanceof ProfileServiceError
+          ? err
+          : new ProfileServiceError('Failed to save changes', { originalError: err })
       );
-      setProfile(updatedProfile);
+    } finally {
+      setSaving(false);
     }
-
-    // Handle Address Updates
-    let updatedAddresses = [...addresses];
-    if (addressChanges.modified.size > 0 || addressChanges.deleted.size > 0 || addressChanges.added.length > 0) {
-      // Handle deletions
-      if (addressChanges.deleted.size > 0) {
-        await Promise.all(
-          Array.from(addressChanges.deleted).map(addressId =>
-            profileService.deleteAddress(userId, addressId, token)
-          )
-        );
-        // Update local state by filtering out deleted addresses
-        updatedAddresses = updatedAddresses.filter(addr =>
-          addr.id ? !addressChanges.deleted.has(addr.id) : true
-        );
-      }
-
-      // Handle modifications
-      if (addressChanges.modified.size > 0) {
-        const modificationPromises = Array.from(addressChanges.modified.entries())
-          .filter(([id]) => !addressChanges.deleted.has(id))
-          .map(async ([id, fields]) => {
-            const address = addresses.find(a => a.id === id);
-            if (!address?.id || isAddressEmpty(address)) return null;
-
-            const updateData: Partial<Address> = {};
-            fields.forEach(field => {
-              updateData[field] = address[field];
-            });
-
-            const updatedAddress = await profileService.updateAddress(
-              userId,
-              address.id,
-              token,
-              updateData
-            );
-
-            // Update the address in our local state
-            const index = updatedAddresses.findIndex(a => a.id === id);
-            if (index !== -1) {
-              updatedAddresses[index] = updatedAddress;
-            }
-          });
-
-        await Promise.all(modificationPromises);
-      }
-
-      // Handle additions - filter out empty addresses
-      if (addressChanges.added.length > 0) {
-        const additionPromises = addresses
-          .filter((_, index) => addressChanges.added.includes(index))
-          .filter(address => !isAddressEmpty(address)) // Filter out empty addresses
-          .map(async address => {
-            const { id, user_id, ...addressData } = address;
-            const newAddress = await profileService.createAddress(
-              userId,
-              token,
-              addressData
-            );
-            // Replace the temporary address with the new one from the server
-            updatedAddresses = updatedAddresses.map(addr =>
-              addr === address ? newAddress : addr
-            );
-            return newAddress;
-          });
-
-        await Promise.all(additionPromises);
-      }
-
-      // Remove any empty addresses from local state
-      updatedAddresses = updatedAddresses.filter(addr => !isAddressEmpty(addr));
-
-      // Update state with our locally tracked changes
-      setAddresses(updatedAddresses);
-    }
-
-    setChangedFields(createInitialFormChanges());
-    setAddressChanges(createInitialAddressChanges());
-    onClose();
-  } catch (err) {
-    console.error('Save error:', err);
-    setError(
-      err instanceof ProfileServiceError
-        ? err
-        : new ProfileServiceError('Failed to save changes', { originalError: err })
-    );
-  } finally {
-    setSaving(false);
-  }
-};
+  };
 
   return (
     <DialogLayout
@@ -522,7 +633,6 @@ const handleSave = async () => {
                   </Button>
                 </div>
               )}
-
 
               {activeTab === 'socials' && (
                 <SocialsForm
