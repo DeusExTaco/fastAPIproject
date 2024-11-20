@@ -1,5 +1,5 @@
 # backend/middleware/connection_middleware.py
-from fastapi import Request, Response
+from fastapi import Request, Response, FastAPI
 from starlette.middleware.base import BaseHTTPMiddleware
 import logging
 from typing import List, Optional
@@ -61,6 +61,7 @@ async def track_connection(request: Request, rate_limit: int, rate_window: int, 
         except Exception as e:
             logger.error(f"Error removing connection: {str(e)}")
 
+
 class EnhancedConnectionMiddleware(BaseHTTPMiddleware):
     def __init__(
             self,
@@ -119,7 +120,7 @@ class EnhancedConnectionMiddleware(BaseHTTPMiddleware):
 
 
 # For backward compatibility
-async def connection_tracking_middleware(request: Request, call_next):
+async def connection_tracking_middleware(app: FastAPI, request: Request, call_next):
     """Legacy middleware function for compatibility"""
-    middleware = EnhancedConnectionMiddleware(app=None)
+    middleware = EnhancedConnectionMiddleware(app=app)
     return await middleware.dispatch(request, call_next)

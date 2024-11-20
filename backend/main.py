@@ -37,21 +37,6 @@ logging.basicConfig(
     force=True
 )
 
-# Configure SQLAlchemy logging
-# for logger_name in [
-#     'sqlalchemy.engine',
-#     'sqlalchemy.orm',
-#     'sqlalchemy.pool',
-#     'sqlalchemy.dialects',
-#     'sqlalchemy.orm.mapper',
-#     'sqlalchemy.orm.relationships',
-#     'sqlalchemy.orm.strategies',
-#     'sqlalchemy.engine.base.Engine'
-# ]:
-#     logging.getLogger(logger_name).setLevel(logging.WARNING)
-#     logging.getLogger(logger_name).propagate = False
-#     logging.getLogger(logger_name).handlers = []
-
 # Configure uvicorn access logs
 logging.getLogger(ua).handlers = []
 logging.getLogger(ua).propagate = True

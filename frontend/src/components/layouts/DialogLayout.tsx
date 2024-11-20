@@ -39,10 +39,10 @@ const DialogLayout: React.FC<DialogLayoutProps> = ({
     >
       {/* Fixed Header */}
       <DialogHeader
-          className="flex justify-between items-center border-b dark:border-gray-700 shrink-0 py-2"
-          placeholder={""}
-          onPointerEnterCapture={() => {}}
-          onPointerLeaveCapture={() => {}}
+        className="flex justify-between items-center border-b dark:border-gray-700 shrink-0 py-2 relative z-[1]"
+        placeholder={""}
+        onPointerEnterCapture={() => {}}
+        onPointerLeaveCapture={() => {}}
       >
         <h2 className="text-lg font-semibold text-gray-800 dark:text-white">{title}</h2>
         <IconButton
@@ -60,27 +60,29 @@ const DialogLayout: React.FC<DialogLayoutProps> = ({
 
       {/* Error Display */}
       {error && (
-        <div className="shrink-0">
+        <div className="shrink-0 relative z-[1]">
           {error}
         </div>
       )}
 
       {/* Main Content Area */}
       <DialogBody
-          className="flex-1 overflow-hidden p-0"
-          placeholder={""}
-          onPointerEnterCapture={() => {}}
-          onPointerLeaveCapture={() => {}}
+        className="flex-1 !overflow-visible p-0 relative"
+        placeholder={""}
+        onPointerEnterCapture={() => {}}
+        onPointerLeaveCapture={() => {}}
       >
-        {children}
+        <div className="absolute inset-0 overflow-y-auto">
+          {children}
+        </div>
       </DialogBody>
 
       {/* Fixed Footer */}
       <DialogFooter
-          className="flex justify-end gap-2 p-3 border-t rounded-b-3xl dark:border-gray-700 shrink-0 bg-white dark:bg-gray-800"
-          placeholder={""}
-          onPointerEnterCapture={() => {}}
-          onPointerLeaveCapture={() => {}}
+        className="flex justify-end gap-2 p-3 border-t rounded-b-3xl dark:border-gray-700 shrink-0 bg-white dark:bg-gray-800 relative z-[1]"
+        placeholder={""}
+        onPointerEnterCapture={() => {}}
+        onPointerLeaveCapture={() => {}}
       >
         {footer}
       </DialogFooter>

@@ -19,26 +19,27 @@
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.27.0",
     "react-social-icons": "^6.18.0",
-    "recharts": "^2.13.2"
+    "recharts": "^2.13.2",
+    "use-react-countries": "^2.0.1"
   },
   "devDependencies": {
+    "@eslint/js": "latest",
     "@types/node": "^20.8.0",
     "@types/react": "^18.3.11",
     "@types/react-dom": "^18.3.1",
     "@types/react-input-mask": "^3.0.5",
     "@vitejs/plugin-react-swc": "^3.7.1",
     "autoprefixer": "^10.4.20",
+    "eslint": "latest",
+    "eslint-plugin-react-hooks": "latest",
+    "eslint-plugin-react-refresh": "latest",
+    "globals": "latest",
     "postcss": "^8.4.47",
     "react-input-mask": "^2.0.4",
     "tailwindcss": "^3.4.14",
     "typescript": "^5.6.3",
-    "vite": "^5.4.9",
-    "@eslint/js": "latest",
-    "eslint": "latest",
     "typescript-eslint": "latest",
-    "eslint-plugin-react-hooks": "latest",
-    "eslint-plugin-react-refresh": "latest",
-    "globals": "latest"
+    "vite": "^5.4.9"
   },
   "overrides": {
     "react": "^18.3.1",

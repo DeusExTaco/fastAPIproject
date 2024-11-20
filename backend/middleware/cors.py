@@ -49,6 +49,7 @@ def setup_cors(app: FastAPI) -> None:
     if settings.cors_headers_list != ["*"]:
         security_headers.extend(settings.cors_headers_list)
 
+    # noinspection PyTypeChecker
     app.add_middleware(
         CORSMiddleware,
         allow_origins=allowed_origins,

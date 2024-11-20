@@ -1,4 +1,4 @@
-// src/types/profile.ts
+// src/types/profile.tsx
 export interface Address {
   id?: number;
   user_id?: number;
