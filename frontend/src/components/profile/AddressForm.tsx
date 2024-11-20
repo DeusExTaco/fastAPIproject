@@ -251,7 +251,13 @@ export function CountriesSelect({value, onChange}: CountriesSelectProps) {
     }, [isOpen]);
 
     if (loading) {
-        return <Input label="Country" disabled value="Loading..." crossOrigin={undefined} {...commonInputProps} />;
+        return <Input
+            label="Country"
+            disabled value="Loading..."
+            className=" bg-white dark:bg-gray-800"
+            crossOrigin={undefined}
+            {...commonInputProps}
+        />;
     }
 
     if (error) {
@@ -329,7 +335,7 @@ export function CountriesSelect({value, onChange}: CountriesSelectProps) {
                             <button
                                 key={name}
                                 type="button"
-                                className="w-full flex items-center gap-2 px-4 py-2 hover:bg-blue-50 hover:rounded-md dark:hover:bg-gray-700 cursor-pointer dark:text-white text-left bg-transparent border-0"
+                                className="w-full flex items-center gap-2 px-4 py-2 text-sm font-light text-blue-gray-700 hover:bg-blue-50 hover:rounded-md dark:hover:bg-gray-700 cursor-pointer dark:text-white text-left bg-transparent border-0"
                                 onClick={(e) => handleSelect(e, name)}
                                 onKeyDown={(e) => {
                                     if (e.key === 'Enter') {

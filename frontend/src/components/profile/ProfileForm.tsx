@@ -1,10 +1,11 @@
 // ProfileForm.tsx
 import React from 'react';
-import { Input, Textarea, Select, Option } from "@material-tailwind/react";
+import { Input, Textarea } from "@material-tailwind/react";
 import { Profile } from '../../types/profile';
 import { ProfileServiceError } from '../../types/errors/ProfileServiceError';
 import ErrorBoundary from '../errors/ErrorBoundary';
 import ProfileErrorFallback from '../errors/ProfileErrorFallback';
+import { GenderSelect, PrivacySelect } from '../custom/CustomDropdown';
 
 interface ProfileFormProps {
   profile: Profile;
@@ -43,28 +44,16 @@ const ProfileForm: React.FC<ProfileFormProps> = ({
                   color={"blue"}
                   value={profile?.date_of_birth ?? ''}
                   onChange={(e) => onChange('date_of_birth', e.target.value)}
-                  className="w-full"
+                  className="w-full dark:text-white"
                   crossOrigin={undefined}
                   placeholder={""}
                   onPointerEnterCapture={() => {}}
                   onPointerLeaveCapture={() => {}}
               />
-              <Select
-                  label="Gender"
-                  color={"blue"}
+              <GenderSelect
                   value={profile?.gender ?? ''}
                   onChange={(value) => onChange('gender', value)}
-                  className="w-full"
-                  placeholder={""}
-                  onPointerEnterCapture={() => {}}
-                  onPointerLeaveCapture={() => {}}
-              >
-                {['male', 'female', 'other', 'prefer_not_to_say'].map(option => (
-                    <Option key={option} value={option}>
-                      {option.charAt(0).toUpperCase() + option.slice(1).replace(/_/g, ' ')}
-                    </Option>
-                ))}
-              </Select>
+              />
             </div>
           </div>
 
@@ -78,7 +67,7 @@ const ProfileForm: React.FC<ProfileFormProps> = ({
                   color={"blue"}
                   value={profile?.phone ?? ''}
                   onChange={(e) => onChange('phone', e.target.value)}
-                  className="w-full"
+                  className="w-full dark:text-white"
                   crossOrigin={undefined}
                   placeholder={""}
                   onPointerEnterCapture={() => {}}
@@ -90,7 +79,7 @@ const ProfileForm: React.FC<ProfileFormProps> = ({
                   color={"blue"}
                   value={profile?.website ?? ''}
                   onChange={handleWebsiteChange}
-                  className="w-full"
+                  className="w-full dark:text-white"
                   crossOrigin={undefined}
                   placeholder={""}
                   onPointerEnterCapture={() => {}}
@@ -108,7 +97,7 @@ const ProfileForm: React.FC<ProfileFormProps> = ({
                 value={profile?.bio ?? ''}
                 onChange={(e) => onChange('bio', e.target.value)}
                 rows={3}
-                className="w-full"
+                className="w-full dark:text-white"
                 placeholder={""}
                 onPointerEnterCapture={() => {}}
                 onPointerLeaveCapture={() => {}}
@@ -118,23 +107,13 @@ const ProfileForm: React.FC<ProfileFormProps> = ({
           {/* Privacy Settings */}
           <div className="space-y-4">
             <h3 className="text-sm font-medium dark:text-white">Privacy Settings</h3>
-            <Select
-                label="Profile Visibility"
-                color={"blue"}
+            <PrivacySelect
                 value={profile?.privacy_settings?.profile_visibility ?? 'private'}
                 onChange={(value) => onChange('privacy_settings', {
-                  ...profile.privacy_settings,
-                  profile_visibility: value
+                    ...profile.privacy_settings,
+                    profile_visibility: value
                 })}
-                className="w-full"
-                placeholder={""}
-                onPointerEnterCapture={() => {}}
-                onPointerLeaveCapture={() => {}}
-            >
-              <Option value="public">Public</Option>
-              <Option value="private">Private</Option>
-              <Option value="contacts">Contacts Only</Option>
-            </Select>
+            />
           </div>
         </div>
       </ErrorBoundary>

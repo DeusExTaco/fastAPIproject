@@ -14,11 +14,55 @@ const SocialsForm: React.FC<SocialsFormProps> = ({
   onChange,
 }) => {
   const socialPlatforms = [
-    { id: 'twitter', label: 'Twitter Username', placeholder: '@username' },
-    { id: 'linkedin', label: 'LinkedIn Profile', placeholder: 'LinkedIn profile URL' },
-    { id: 'GitHub', label: 'GitHub Username', placeholder: 'GitHub username' },
-    { id: 'Instagram', label: 'Instagram Username', placeholder: '@username' }
+    {
+      id: 'twitter',
+      label: 'Twitter Username',
+      placeholder: '@username',
+      formatValue: (value: string) => value.startsWith('@') ? value : `@${value.replace(/^@/, '')}`
+    },
+    {
+      id: 'linkedin',
+      label: 'LinkedIn Profile',
+      placeholder: 'LinkedIn profile URL',
+      formatValue: (value: string) => {
+        if (!value) return '';
+        const baseUrl = 'https://www.linkedin.com/in/';
+        if (value.startsWith(baseUrl)) return value;
+        return `${baseUrl}${value.replace(/^https?:\/\/(www\.)?linkedin\.com\/in\//i, '')}`;
+      }
+    },
+    {
+      id: 'GitHub',
+      label: 'GitHub Username',
+      placeholder: 'GitHub username',
+      formatValue: (value: string) => {
+        if (!value) return '';
+        const baseUrl = 'https://github.com/';
+        if (value.startsWith(baseUrl)) return value;
+        return `${baseUrl}${value.replace(/^https?:\/\/(www\.)?github\.com\//i, '')}`;
+      }
+    },
+    {
+      id: 'Instagram',
+      label: 'Instagram Username',
+      placeholder: '@username',
+      formatValue: (value: string) => value.startsWith('@') ? value : `@${value.replace(/^@/, '')}`
+    }
   ];
+
+  const handleSocialChange = (platform: string, value: string) => {
+    try {
+      const platformConfig = socialPlatforms.find(p => p.id === platform);
+      if (!platformConfig) return;
+
+      const formattedValue = value ? platformConfig.formatValue(value) : '';
+      onChange(platform, formattedValue);
+    } catch (error) {
+      console.error(`Failed to format ${platform} value:`, error);
+      // You might want to throw a custom error here similar to ProfileServiceError
+      onChange(platform, value);
+    }
+  };
 
   return (
     <div className="space-y-4 max-w-2xl mx-auto p-4">
@@ -38,8 +82,8 @@ const SocialsForm: React.FC<SocialsFormProps> = ({
             label={platform.label}
             color={"blue"}
             value={socialMedia?.[platform.id] ?? ''}
-            onChange={(e) => onChange(platform.id, e.target.value)}
-            className="w-full"
+            onChange={(e) => handleSocialChange(platform.id, e.target.value)}
+            className="w-full dark:text-white"
             crossOrigin={undefined}
             placeholder={platform.placeholder}
             onPointerEnterCapture={() => {}}

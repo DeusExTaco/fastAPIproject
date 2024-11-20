@@ -313,14 +313,14 @@ function AdminDashboard({ user }: Readonly<AdminDashboardProps>) {
                       </p>
                     </div>
 
-                    <div className="py-1">
+                    <div className="py-1 p-2.5">
                       <button
                         onClick={() => {
                           setActiveComponent('settings');
                           setIsDropdownOpen(false);
                         }}
                         className="w-full flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-200
-                                 hover:bg-gray-100 dark:hover:bg-gray-700"
+                                 hover:bg-gray-100 hover:rounded-md dark:hover:bg-gray-700"
                       >
                         <SettingsIcon className="w-4 h-4 mr-2" />
                         Settings
@@ -329,17 +329,17 @@ function AdminDashboard({ user }: Readonly<AdminDashboardProps>) {
                       <button
                         onClick={handlePasswordModalOpen}
                         className="w-full flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-200
-                                 hover:bg-gray-100 dark:hover:bg-gray-700"
+                                 hover:bg-gray-100 hover:rounded-md dark:hover:bg-gray-700"
                       >
                         <Lock className="w-4 h-4 mr-2" />
                         Change Password
                       </button>
                     </div>
 
-                    <div className="py-1 border-t border-gray-100 dark:border-gray-700">
+                    <div className="py-1 border-t p-2.5 border-gray-100 dark:border-gray-700">
                       <button
                         onClick={handleLogout}
-                        className="w-full flex items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50
+                        className="w-full flex items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50 hover:rounded-md
                                  dark:text-red-400 dark:hover:bg-red-900/10"
                       >
                     <LogOut className="w-4 h-4 mr-2" />

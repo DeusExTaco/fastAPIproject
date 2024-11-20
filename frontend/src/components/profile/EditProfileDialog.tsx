@@ -271,7 +271,7 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
 }) => {
   // State Management
   const [activeTab, setActiveTab] = useState<TabType>('profile');
-  const [profile, setProfile] = useState<Profile>({ social_media: {} });
+  const [profile, setProfile] = useState<Profile>({social_media: {}});
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -282,9 +282,9 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
 
   // Menu Configuration
   const menuItems: MenuItem[] = [
-    { id: 'profile', icon: UserCircle, label: 'Profile' },
-    { id: 'addresses', icon: MapPin, label: 'Addresses' },
-    { id: 'socials', icon: Share2, label: 'Social Media' }
+    {id: 'profile', icon: UserCircle, label: 'Profile'},
+    {id: 'addresses', icon: MapPin, label: 'Addresses'},
+    {id: 'socials', icon: Share2, label: 'Social Media'}
   ];
 
   // Window Resize Handler
@@ -307,16 +307,16 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
         profileService.getAddresses(userId, token)
       ]);
 
-      setProfile(profileData || { social_media: {} });
+      setProfile(profileData || {social_media: {}});
       setAddresses(addressesData || []);
       setChangedFields(createInitialFormChanges());
       setAddressChanges(createInitialAddressChanges());
     } catch (err) {
       console.error('Error fetching data:', err);
       setError(
-        err instanceof ProfileServiceError
-          ? err
-          : new ProfileServiceError('Failed to load profile data', { originalError: err })
+          err instanceof ProfileServiceError
+              ? err
+              : new ProfileServiceError('Failed to load profile data', {originalError: err})
       );
     } finally {
       setLoading(false);
@@ -332,7 +332,7 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
 
   // Profile Handlers
   const handleProfileChange = useCallback((field: keyof Profile, value: any) => {
-    setProfile(prev => ({ ...prev, [field]: value }));
+    setProfile(prev => ({...prev, [field]: value}));
     setChangedFields(prev => ({
       ...prev,
       profile: new Set(prev.profile).add(field)
@@ -344,7 +344,7 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
     setAddresses(prev => {
       const newAddresses = [...prev];
       if (index >= 0 && index < newAddresses.length) {
-        newAddresses[index] = { ...newAddresses[index], [field]: value };
+        newAddresses[index] = {...newAddresses[index], [field]: value};
       }
       return newAddresses;
     });
@@ -359,7 +359,7 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
         newModified.set(address.id, addressFields);
       }
 
-      return { ...prev, modified: newModified };
+      return {...prev, modified: newModified};
     });
   }, [addresses]);
 
@@ -414,10 +414,10 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
   }, []);
 
   const hasChanges = changedFields.profile.size > 0 ||
-    addressChanges.modified.size > 0 ||
-    addressChanges.deleted.size > 0 ||
-    addressChanges.added.length > 0 ||
-    changedFields.socials.size > 0;
+      addressChanges.modified.size > 0 ||
+      addressChanges.deleted.size > 0 ||
+      addressChanges.added.length > 0 ||
+      changedFields.socials.size > 0;
 
   // Main save handler
   const handleSave = async () => {
@@ -433,12 +433,12 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
       // Handle profile updates
       if (changedFields.profile.size > 0 || changedFields.socials.size > 0) {
         const updatedProfile = await profileUpdateHelpers.updateProfile(
-          userId,
-          token,
-          profile,
-          changedFields.profile,
-          changedFields.socials,
-          profileService
+            userId,
+            token,
+            profile,
+            changedFields.profile,
+            changedFields.socials,
+            profileService
         );
         setProfile(updatedProfile);
       }
@@ -452,28 +452,28 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
 
         // Process address changes sequentially
         updatedAddresses = await addressUpdateHelpers.handleAddressDeletions(
-          userId,
-          token,
-          addressChanges.deleted,
-          updatedAddresses,
-          profileService
+            userId,
+            token,
+            addressChanges.deleted,
+            updatedAddresses,
+            profileService
         );
 
         updatedAddresses = await addressUpdateHelpers.handleAddressModifications(
-          userId,
-          token,
-          addressChanges.modified,
-          addressChanges.deleted,
-          updatedAddresses,
-          profileService
+            userId,
+            token,
+            addressChanges.modified,
+            addressChanges.deleted,
+            updatedAddresses,
+            profileService
         );
 
         updatedAddresses = await addressUpdateHelpers.handleAddressAdditions(
-          userId,
-          token,
-          addressChanges.added,
-          updatedAddresses,
-          profileService
+            userId,
+            token,
+            addressChanges.added,
+            updatedAddresses,
+            profileService
         );
 
         setAddresses(updatedAddresses);
@@ -485,9 +485,9 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
     } catch (err) {
       console.error('Save error:', err);
       setError(
-        err instanceof ProfileServiceError
-          ? err
-          : new ProfileServiceError('Failed to save changes', { originalError: err })
+          err instanceof ProfileServiceError
+              ? err
+              : new ProfileServiceError('Failed to save changes', {originalError: err})
       );
     } finally {
       setSaving(false);
@@ -495,157 +495,182 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
   };
 
   return (
-    <DialogLayout
-      open={open}
-      title="Edit Profile"
-      onClose={onClose}
-      footer={
-        <>
-          <Button
-            variant="outlined"
-            color="gray"
-            size="sm"
-            onClick={onClose}
-            className="dark:text-white border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-            disabled={saving}
-            ripple={false}
-            placeholder={""}
-            onPointerEnterCapture={() => {}}
-            onPointerLeaveCapture={() => {}}
-          >
-            Cancel
-          </Button>
-          <Button
-            color="blue"
-            size="sm"
-            onClick={handleSave}
-            className="dark:text-white flex items-center gap-2"
-            disabled={saving || !hasChanges}
-            placeholder={""}
-            onPointerEnterCapture={() => {}}
-            onPointerLeaveCapture={() => {}}
-          >
-            {saving && <Loader2 className="h-3 w-3 animate-spin" />}
-            {saving ? 'Saving...' : 'Save Changes'}
-          </Button>
-        </>
-      }
-      error={error && (
-        <div className="mx-4 mt-4 p-3 bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 text-red-700 dark:text-red-200 text-sm">
-          <div className="flex items-start gap-2">
-            <AlertTriangle className="h-4 w-4 mt-0.5" />
-            <div>
-              <p className="font-medium">{error.message}</p>
-              {error.details && (
-                <p className="mt-1 text-sm text-red-600 dark:text-red-300">
-                  {typeof error.details === 'string'
-                    ? error.details
-                    : JSON.stringify(error.details, null, 2)}
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-    >
-      <div className="flex h-full">
-        {/* Navigation */}
-        <div
-          className={`
-            bg-white dark:bg-gray-800 
-            border-r border-gray-200 dark:border-gray-700 
-            flex-shrink-0 transition-[width] duration-200 ease-out
-            ${isNavExpanded ? 'w-48' : 'w-12'}
-          `}
-        >
-          <nav className="mt-4 px-3">
-            {menuItems.map(item => (
-              <button
-                key={item.id}
-                onClick={() => setActiveTab(item.id)}
-                className="w-full text-left group"
+      <DialogLayout
+          open={open}
+          title="Edit Profile"
+          onClose={onClose}
+          footer={
+            <>
+              <Button
+                  variant="outlined"
+                  color="gray"
+                  size="sm"
+                  onClick={onClose}
+                  className="dark:text-white border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                  disabled={saving}
+                  ripple={false}
+                  placeholder={""}
+                  onPointerEnterCapture={() => {
+                  }}
+                  onPointerLeaveCapture={() => {
+                  }}
               >
-                <div className="h-14 flex items-center relative">
-                  <div
-                    className={`
-                      p-2 rounded-lg transition-colors duration-150 flex items-center
-                      ${activeTab === item.id
-                        ? 'bg-gray-100 dark:bg-gray-700 text-blue-600 dark:text-blue-400'
-                        : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700'
-                      }
-                    `}
-                  >
-                    <item.icon className={`w-5 h-5 ${!isNavExpanded ? 'mr-0' : 'mr-3'}`} />
-                    {isNavExpanded && <span>{item.label}</span>}
+                Cancel
+              </Button>
+              <Button
+                  color="blue"
+                  size="sm"
+                  onClick={handleSave}
+                  className="dark:text-white flex items-center gap-2"
+                  disabled={saving || !hasChanges}
+                  placeholder={""}
+                  onPointerEnterCapture={() => {
+                  }}
+                  onPointerLeaveCapture={() => {
+                  }}
+              >
+                {saving && <Loader2 className="h-3 w-3 animate-spin"/>}
+                {saving ? 'Saving...' : 'Save Changes'}
+              </Button>
+            </>
+          }
+          error={error && (
+              <div
+                  className="mx-4 mt-4 p-3 bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 text-red-700 dark:text-red-200 text-sm">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 mt-0.5"/>
+                  <div>
+                    <p className="font-medium">{error.message}</p>
+                    {error.details && (
+                        <p className="mt-1 text-sm text-red-600 dark:text-red-300">
+                          {typeof error.details === 'string'
+                              ? error.details
+                              : JSON.stringify(error.details, null, 2)}
+                        </p>
+                    )}
                   </div>
                 </div>
-              </button>
-            ))}
-          </nav>
-        </div>
-
-        {/* Content Area */}
-        <div className="flex-1 overflow-hidden">
-          {loading ? (
-            <div className="h-full flex justify-center items-center">
-              <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
-            </div>
-          ) : (
-            <div className="h-full overflow-y-auto px-4">
-              {activeTab === 'profile' && (
-                <ProfileForm
-                  profile={profile}
-                  onChange={handleProfileChange}
-                />
-              )}
-
-              {activeTab === 'addresses' && (
-                <div className="py-4 space-y-4">
-                  {addresses.map((address, index) => {
-                    const isDeleted = address.id ? addressChanges.deleted.has(address.id) : false;
-
-                    return (
-                      <div
-                        key={address.id ?? `new-address-${index}`}
-                        className={isDeleted ? 'opacity-50' : ''}
-                      >
-                        <AddressForm
-                          address={address}
-                          index={index}
-                          onChange={(field, value) => handleAddressChange(index, field, value)}
-                          onRemove={() => handleRemoveAddress(index)}
-                          isDeleted={isDeleted}
-                        />
-                      </div>
-                    );
-                  })}
-                  <Button
-                    onClick={handleAddAddress}
-                    variant="outlined"
-                    size="sm"
-                    className="w-full flex items-center justify-center gap-2 dark:border-gray-600 dark:text-gray-200"
-                    placeholder={""}
-                    onPointerEnterCapture={() => {}}
-                    onPointerLeaveCapture={() => {}}
-                  >
-                    <Plus className="h-4 w-4" />
-                    <span>Add Address</span>
-                  </Button>
-                </div>
-              )}
-
-              {activeTab === 'socials' && (
-                <SocialsForm
-                  socialMedia={profile.social_media}
-                  onChange={handleSocialMediaChange}
-                />
-              )}
-            </div>
+              </div>
           )}
+      >
+        <div className="flex h-full">
+          {/* Navigation */}
+          <div
+              className={`
+          bg-white dark:bg-gray-800 
+          border-r border-gray-200 dark:border-gray-700 
+          flex-shrink-0 transition-[width] duration-200 ease-out
+          ${isNavExpanded ? 'w-48' : 'w-12'}
+        `}
+          >
+            <nav className="mt-4 px-3">
+              {menuItems.map(item => (
+                  <button
+                      key={item.id}
+                      onClick={() => setActiveTab(item.id)}
+                      className="w-full text-left group"
+                  >
+                    <div className="h-14 flex items-center relative">
+                      {!isNavExpanded && (
+                          <div className="absolute left-0 w-12 -ml-3 flex justify-center">
+                            <div className={`p-2 rounded-lg transition-colors duration-150
+                      ${activeTab === item.id
+                                ? 'bg-gray-100 dark:bg-gray-700 text-blue-600 dark:text-blue-400'
+                                : 'text-gray-700 dark:text-gray-200 group-hover:bg-gray-100 dark:group-hover:bg-gray-700'}`}>
+                              <item.icon className="w-5 h-5"/>
+                            </div>
+                          </div>
+                      )}
+
+                      {isNavExpanded && (
+                          <div className={`w-full flex items-center rounded-lg transition-colors duration-150 relative
+                    ${activeTab === item.id
+                              ? 'bg-gray-100 dark:bg-gray-700 text-blue-600 dark:text-blue-400'
+                              : 'text-gray-700 dark:text-gray-200 group-hover:bg-gray-100 dark:group-hover:bg-gray-700'}`}>
+                            {activeTab === item.id && (
+                                <div className="absolute left-0 top-0 bottom-0 w-1 rounded-l-lg
+                        bg-blue-600 dark:bg-blue-400 transition-colors duration-150"/>
+                            )}
+                            <div className="w-12 flex justify-center p-2">
+                              <item.icon className="w-5 h-5"/>
+                            </div>
+                            <div className={`transition-[width,opacity] duration-200 ease-out
+                      overflow-hidden whitespace-nowrap delay-[0ms,100ms]
+                      ${isNavExpanded ? 'w-36 opacity-100' : 'w-0 opacity-0'}`}>
+                              {item.label}
+                            </div>
+                          </div>
+                      )}
+                    </div>
+                  </button>
+              ))}
+            </nav>
+          </div>
+
+          {/* Content Area */}
+          <div className="flex-1 overflow-hidden">
+            {loading ? (
+                <div className="h-full flex justify-center items-center">
+                  <Loader2 className="h-8 w-8 animate-spin text-blue-500"/>
+                </div>
+            ) : (
+                <div className="h-full overflow-y-auto px-4">
+                  {activeTab === 'profile' && (
+                      <ProfileForm
+                          profile={profile}
+                          onChange={handleProfileChange}
+                      />
+                  )}
+
+                  {activeTab === 'addresses' && (
+                      <div className="py-4 space-y-4">
+                        {addresses.map((address, index) => {
+                          const isDeleted = address.id ? addressChanges.deleted.has(address.id) : false;
+
+                          return (
+                              <div
+                                  key={address.id ?? `new-address-${index}`}
+                                  className={isDeleted ? 'opacity-50' : ''}
+                              >
+                                <AddressForm
+                                    address={address}
+                                    index={index}
+                                    onChange={(field, value) => handleAddressChange(index, field, value)}
+                                    onRemove={() => handleRemoveAddress(index)}
+                                    isDeleted={isDeleted}
+                                />
+                              </div>
+                          );
+                        })}
+                        <Button
+                            onClick={handleAddAddress}
+                            variant="outlined"
+                            size="sm"
+                            className="w-full flex items-center justify-center gap-2 dark:border-gray-600 dark:text-gray-200"
+                            placeholder={""}
+                            onPointerEnterCapture={() => {
+                            }}
+                            onPointerLeaveCapture={() => {
+                            }}
+                        >
+                          <Plus className="h-4 w-4"/>
+                          <span>Add Address</span>
+                        </Button>
+                      </div>
+                  )}
+
+                  {activeTab === 'socials' && (
+                      <SocialsForm
+                          socialMedia={profile.social_media}
+                          onChange={handleSocialMediaChange}
+                      />
+                  )}
+                </div>
+            )}
+          </div>
         </div>
-      </div>
-    </DialogLayout>
+      </DialogLayout>
   );
-};
+}
 
 export default EditProfileDialog;
